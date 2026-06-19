@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    
+    <!-- Outer metallic ring -->
+    <path
+        android:pathData="M 60,60 m -54,0 a 54,54 0 1,1 108,0 a 54,54 0 1,1 -108,0"
+        android:fillColor="#111215"
+        android:strokeWidth="3.5"
+        android:strokeColor="#2A2E35" />
+
+    <!-- Inner dark metallic face -->
+    <path
+        android:pathData="M 60,60 m -48,0 a 48,48 0 1,1 96,0 a 48,48 0 1,1 -96,0"
+        android:fillColor="#1C1F24"
+        android:strokeWidth="1.5"
+        android:strokeColor="#252A30" />
+
+    <!-- Subtle inner dials/concentric rings -->
+    <path
+        android:pathData="M 60,60 m -42,0 a 42,42 0 1,1 84,0 a 42,42 0 1,1 -84,0"
+        android:fillColor="#00000000"
+        android:strokeWidth="0.8"
+        android:strokeColor="#171A1E" />
+
+    <!-- Neon orange car shape contour -->
+    <path
+        android:pathData="M22,62 C22,57 26,50 32,49 C39,48 48,42 54,40 C62,38 78,38 82,40 C88,42 92,48 96,54 C99,58 100,62 100,64 C100,68 96,70 92,70 H90 M76,70 H46 M30,70 H22 Z"
+        android:strokeWidth="3.5"
+        android:strokeColor="#FF6230"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Wheels (as clean glowing circles) -->
+    <path
+        android:pathData="M 38,70 m -6,0 a 6,6 0 1,1 12,0 a 6,6 0 1,1 -12,0"
+        android:strokeWidth="3.5"
+        android:strokeColor="#FF6230"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M 83,70 m -6,0 a 6,6 0 1,1 12,0 a 6,6 0 1,1 -12,0"
+        android:strokeWidth="3.5"
+        android:strokeColor="#FF6230"
+        android:fillColor="#00000000" />
+
+    <!-- Heartbeat / Pulse Wave merging into arrow -->
+    <path
+        android:pathData="M44,70 H52 L55,60 L58,76 L61,42 L65,84 L69,64 L72,70 H77 L94,40"
+        android:strokeWidth="3.5"
+        android:strokeColor="#FFA17A"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Arrow head pointing upwards-right -->
+    <path
+        android:pathData="M84,40 H94 V50"
+        android:strokeWidth="3.5"
+        android:strokeColor="#FFA17A"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+</vector>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Neon orange car shape contour -->
+    <path
+        android:pathData="M20,56 C20,51 24,45 29,44 C35,43 43,38 49,36 C56,34 70,34 74,36 C79,38 83,43 86,49 C89,52 90,56 90,58 C90,61 87,63 83,63 H81 M69,63 H41 M28,63 H20 Z"
+        android:strokeWidth="3.2"
+        android:strokeColor="#FF6230"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Wheels (as clean glowing circles) -->
+    <path
+        android:pathData="M 34,63 m -5,0 a 5,5 0 1,1 10,0 a 5,5 0 1,1 -10,0"
+        android:strokeWidth="3.2"
+        android:strokeColor="#FF6230"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M 75,63 m -5,0 a 5,5 0 1,1 10,0 a 5,5 0 1,1 -10,0"
+        android:strokeWidth="3.2"
+        android:strokeColor="#FF6230"
+        android:fillColor="#00000000" />
+
+    <!-- Heartbeat / Pulse Wave merging into arrow -->
+    <path
+        android:pathData="M40,63 H47 L50,54 L52,68 L55,38 L58,74 L61,58 L63,63 H68 L84,36"
+        android:strokeWidth="3.2"
+        android:strokeColor="#FFA17A"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Arrow head pointing upwards-right -->
+    <path
+        android:pathData="M75,36 H84 V45"
+        android:strokeWidth="3.2"
+        android:strokeColor="#FFA17A"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+</vector>

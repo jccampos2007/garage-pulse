@@ -1,0 +1,6 @@
+{
+  "name": "GaragePulse",
+  "description": "Control de mantenimiento de vehículos y motos, alertas de repuestos, gestión de kilometraje.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
