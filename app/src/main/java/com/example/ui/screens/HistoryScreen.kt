@@ -586,7 +586,7 @@ fun ServiceDetailDialog(
                             }
                         } del ${cal.get(Calendar.YEAR)}"
                         DetailRow(label = "Fecha", value = fullDateStr)
-                        DetailRow(label = "Kilometraje", value = "${displayDistValue(log.mileage, useKm)} $unitLabel")
+                        DetailRow(label = if (useKm) "Kilometraje" else "Millaje", value = "${displayDistValue(log.mileage, useKm)} $unitLabel")
                         DetailRow(
                             label = "Costo",
                             value = "$${String.format(Locale.US, "%.2f", log.cost)}",

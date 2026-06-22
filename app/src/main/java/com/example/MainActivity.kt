@@ -5,6 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -22,6 +25,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -59,6 +64,10 @@ class MainActivity : ComponentActivity() {
         
         // Setup strict Edge-to-Edge full notch-safe content flow
         enableEdgeToEdge()
+
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        insetsController.hide(WindowInsetsCompat.Type.navigationBars())
+        insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         
         // Enqueue background predictive maintenance worker (runs once a day)
         val workRequest = PeriodicWorkRequestBuilder<OdometerUpdateWorker>(1, TimeUnit.DAYS).build()
@@ -93,90 +102,60 @@ fun MainAppContainer(viewModel: GarageViewModel) {
 
     Scaffold(
         bottomBar = {
-            NavigationBar(
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(68.dp)
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .testTag("app_bottom_nav_bar"),
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                tonalElevation = 8.dp
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                shadowElevation = 8.dp
             ) {
-                 // TAB 1: DASHBOARD
-                NavigationBarItem(
-                    selected = currentTab == GarageTab.DASHBOARD,
-                    onClick = { viewModel.selectTab(GarageTab.DASHBOARD) },
-                    icon = {
-                        Icon(
-                            imageVector = if (currentTab == GarageTab.DASHBOARD) Icons.Default.Home else Icons.Outlined.Home,
-                            contentDescription = "Inicio"
-                        )
-                    },
-                    label = { Text("Inicio", style = MaterialTheme.typography.labelSmall) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = Color.Transparent
-                    ),
-                    modifier = Modifier.testTag("nav_tab_dashboard")
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val tabs = listOf(
+                        GarageTab.DASHBOARD to Triple("Inicio", Icons.Default.Home, Icons.Outlined.Home),
+                        GarageTab.ADD to Triple("Añadir", Icons.Default.AddCircle, Icons.Outlined.AddCircleOutline),
+                        GarageTab.HISTORY to Triple("Historial", Icons.Default.History, Icons.Outlined.History),
+                        GarageTab.PROFILE to Triple("Perfil", Icons.Default.Person, Icons.Outlined.PersonOutline)
+                    )
 
-                // TAB 2: ADD
-                NavigationBarItem(
-                    selected = currentTab == GarageTab.ADD,
-                    onClick = { viewModel.selectTab(GarageTab.ADD) },
-                    icon = {
-                        Icon(
-                            imageVector = if (currentTab == GarageTab.ADD) Icons.Default.AddCircle else Icons.Outlined.AddCircleOutline,
-                            contentDescription = "Añadir"
-                        )
-                    },
-                    label = { Text("Añadir", style = MaterialTheme.typography.labelSmall) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = Color.Transparent
-                    ),
-                    modifier = Modifier.testTag("nav_tab_add")
-                )
+                    tabs.forEach { (tab, info) ->
+                        val (label, iconSelected, iconUnselected) = info
+                        val selected = currentTab == tab
+                        val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
 
-                // TAB 3: HISTORY
-                NavigationBarItem(
-                    selected = currentTab == GarageTab.HISTORY,
-                    onClick = { viewModel.selectTab(GarageTab.HISTORY) },
-                    icon = {
-                        Icon(
-                            imageVector = if (currentTab == GarageTab.HISTORY) Icons.Default.History else Icons.Outlined.History,
-                            contentDescription = "Historial"
-                        )
-                    },
-                    label = { Text("Historial", style = MaterialTheme.typography.labelSmall) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = Color.Transparent
-                    ),
-                    modifier = Modifier.testTag("nav_tab_history")
-                )
-
-                // TAB 4: PROFILE
-                NavigationBarItem(
-                    selected = currentTab == GarageTab.PROFILE,
-                    onClick = { viewModel.selectTab(GarageTab.PROFILE) },
-                    icon = {
-                        Icon(
-                            imageVector = if (currentTab == GarageTab.PROFILE) Icons.Default.Person else Icons.Outlined.PersonOutline,
-                            contentDescription = "Perfil"
-                        )
-                    },
-                    label = { Text("Perfil", style = MaterialTheme.typography.labelSmall) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = Color.Transparent
-                    ),
-                    modifier = Modifier.testTag("nav_tab_profile")
-                )
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable { viewModel.selectTab(tab) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (selected) iconSelected else iconUnselected,
+                                    contentDescription = label,
+                                    tint = color,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = color
+                                )
+                            }
+                        }
+                    }
+                }
             }
         },
         modifier = Modifier.fillMaxSize()

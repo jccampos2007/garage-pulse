@@ -26,7 +26,10 @@ data class Vehicle(
     
     // Premium Telemetry & Customization
     val lastKnownLocation: String? = null,
-    val customIllustrationUrl: String? = null
+    val customIllustrationUrl: String? = null,
+    
+    // Usage profiling
+    val usageType: String = "PARTICULAR"
 ) : Serializable
 
 @Entity(tableName = "service_logs")

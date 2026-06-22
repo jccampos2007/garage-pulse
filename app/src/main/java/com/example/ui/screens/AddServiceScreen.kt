@@ -702,7 +702,7 @@ fun AddServiceScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Outlined.Speed, contentDescription = null, tint = Color(0xFFE75C31), modifier = Modifier.size(16.dp))
                                         Spacer(Modifier.width(6.dp))
-                                        Text("Kilometraje", style = MaterialTheme.typography.labelSmall, color = if (isDark) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                        Text(if (useKm) "Kilometraje" else "Millaje", style = MaterialTheme.typography.labelSmall, color = if (isDark) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                                     }
                                     Spacer(modifier = Modifier.height(6.dp))
                                     BasicTextField(
@@ -1329,7 +1329,7 @@ fun AddServiceScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("Kilometraje:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary)
+                                Text(if (useKm) "Kilometraje:" else "Millaje:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary)
                                 Text("${aiExtractedMileage} ${unitLabel}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                             }
                             Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))

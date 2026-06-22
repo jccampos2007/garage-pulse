@@ -205,15 +205,28 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
         formCategory.value = "Cambio de Aceite"
         formDate.value = System.currentTimeMillis()
         formCost.value = ""
-        // Pre-populate form mileage with current active vehicle odometer if available
-        formMileage.value = currentActiveVehicle?.odometer?.toInt()?.toString() ?: ""
+        // Pre-populate form mileage converting to MI if needed
+        val profile = userProfile.value
+        val odoKm = currentActiveVehicle?.odometer
+        formMileage.value = if (odoKm != null) {
+            val converted = if (profile.useKm) odoKm else odoKm * 0.621371
+            converted.toInt().toString()
+        } else ""
         formNotes.value = ""
     }
 
     fun saveServiceLog(onSuccess: () -> Unit) {
         val vehicle = activeVehicle.value ?: return
+        val profile = userProfile.value
         val costVal = formCost.value.toDoubleOrNull() ?: 0.0
-        val mileageVal = formMileage.value.toDoubleOrNull() ?: vehicle.odometer
+        val inputMileage = formMileage.value.toDoubleOrNull()
+
+        // Si el usuario escribió en millas, convertimos a KM para guardar
+        val finalMileageKm = if (inputMileage != null) {
+            if (profile.useKm) inputMileage else inputMileage / 0.621371
+        } else {
+            vehicle.odometer
+        }
 
         val log = ServiceLog(
             vehicleId = vehicle.id,
@@ -221,7 +234,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
             title = formCategory.value,
             description = formNotes.value.ifBlank { "Mantenimiento general" },
             cost = costVal,
-            mileage = mileageVal,
+            mileage = finalMileageKm,
             date = formDate.value,
             type = if (formCategory.value in listOf("Frenos", "Motor")) "REPARACIONES" else "PREVENTIVO"
         )
@@ -230,8 +243,8 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
             // Save log
             repository.insertServiceLog(log)
             // Update vehicle odometer to the registered mileage if it is newer
-            if (mileageVal > vehicle.odometer) {
-                repository.updateVehicle(vehicle.copy(odometer = mileageVal))
+            if (finalMileageKm > vehicle.odometer) {
+                repository.updateVehicle(vehicle.copy(odometer = finalMileageKm))
             }
             // Reset form
             resetForm(vehicle)

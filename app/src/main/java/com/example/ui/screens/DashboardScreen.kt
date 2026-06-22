@@ -157,6 +157,7 @@ fun DashboardScreen(
             remainingKm = remainingKm,
             remainingDays = remainingDays,
             wearIndex = wearIndex,
+            isTimeUrgent = wearDays >= wearKm,
             icon = icon,
             iconColor = iconColor
         )
@@ -441,12 +442,12 @@ fun DashboardScreen(
                                 // 1. Recorrido Calibración
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = String.format(Locale.US, "%,.0f", calibKm),
+                                        text = displayDist(calibKm),
                                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                                         color = if (isDark) Color.White else Color.Black
                                     )
                                     Text(
-                                        text = "km totales",
+                                        text = "${unitLabel.lowercase()} totales",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (isDark) Color.Gray else Color.DarkGray
                                     )
@@ -461,13 +462,14 @@ fun DashboardScreen(
 
                                 // 2. Promedio Diario
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    val convertedKpd = if (useKm) kpdValue else kpdValue * 0.621371
                                     Text(
-                                        text = String.format(Locale.US, "%.2f", kpdValue),
+                                        text = String.format(Locale.US, "%.2f", convertedKpd),
                                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                                         color = if (isDark) Color.White else Color.Black
                                     )
                                     Text(
-                                        text = "km/día",
+                                        text = "${unitLabel.lowercase()}/día",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (isDark) Color.Gray else Color.DarkGray
                                     )
@@ -491,7 +493,7 @@ fun DashboardScreen(
                                         color = if (isDark) Color.White else Color.Black
                                     )
                                     Text(
-                                        text = if (locationPermissionsState.allPermissionsGranted) "km GPS" else "GPS Inactivo",
+                                        text = if (locationPermissionsState.allPermissionsGranted) "${unitLabel.lowercase()} GPS" else "GPS Inactivo",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (locationPermissionsState.allPermissionsGranted) Color(0xFF4CAF50) else (if (isDark) Color.Gray else Color.DarkGray)
                                     )
@@ -601,13 +603,22 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val actualKpd = activeVehicle?.calculatedKpd ?: 0.0
+                        val baselineKpd = when (activeVehicle?.usageType) {
+                            "TRANSPORTE_APPS" -> 150.0
+                            "CARGA" -> 200.0
+                            "FLOTA_COMERCIAL" -> 120.0
+                            else -> 40.0
+                        }
+                        val kpdToDisplay = if (actualKpd > 0.0) actualKpd else baselineKpd
+
                         Text(
                             text = "Promedio Diario",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "${displayDist(activeVehicle?.calculatedKpd ?: 42.5)} $unitLabel",
+                            text = "${displayDist(kpdToDisplay)} $unitLabel",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -867,9 +878,18 @@ fun DashboardScreen(
                             val dueText = if (task.remainingKm <= 0.0 || task.remainingDays <= 0.0) {
                                 "VENCIDO"
                             } else {
-                                val distText = displayDist(Math.max(0.0, task.remainingKm))
-                                val daysText = Math.max(1, Math.ceil(task.remainingDays).toInt())
-                                "En $distText $unitLabel o $daysText d"
+                                if (task.isTimeUrgent) {
+                                    val daysText = Math.max(1, Math.ceil(task.remainingDays).toInt())
+                                    if (daysText >= 365) {
+                                        val years = daysText / 365
+                                        "En $years año${if (years > 1) "s" else ""}"
+                                    } else {
+                                        "En $daysText días"
+                                    }
+                                } else {
+                                    val distText = displayDist(Math.max(0.0, task.remainingKm))
+                                    "En $distText $unitLabel"
+                                }
                             }
 
                             TaskItemRow(
@@ -1600,6 +1620,7 @@ data class MaintenanceTaskResult(
     val remainingKm: Double,
     val remainingDays: Double,
     val wearIndex: Float,
+    val isTimeUrgent: Boolean,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val iconColor: Color
 )

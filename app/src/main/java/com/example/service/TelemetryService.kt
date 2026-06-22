@@ -82,12 +82,16 @@ class TelemetryService : Service() {
         serviceScope.launch {
             val dao = database.databaseDao()
             val userProfile = dao.getUserProfileDirect() ?: return@launch
-            if (!userProfile.isPremium) {
+            val activeVehicle = dao.getActiveVehicleDirect() ?: return@launch
+
+            val initialDate = activeVehicle.initialDate ?: System.currentTimeMillis()
+            val daysSinceCreation = (System.currentTimeMillis() - initialDate) / (1000 * 60 * 60 * 24)
+            val isFreeTrial = daysSinceCreation <= 7
+
+            if (!userProfile.isPremium && !isFreeTrial) {
                 stopSelf()
                 return@launch
             }
-
-            val activeVehicle = dao.getActiveVehicleDirect() ?: return@launch
 
             val lastLocStr = activeVehicle.lastKnownLocation
             if (lastLocStr != null) {
