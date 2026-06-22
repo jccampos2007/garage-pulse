@@ -283,87 +283,27 @@ fun RegisterScreenLayout(
             .padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // --- Navigation & Bypass Row (Exit Button) ---
+
+        // Minimalist Page Indicator
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(top = 4.dp, bottom = 16.dp),
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (currentStep > 1) {
-                IconButton(
-                    onClick = { currentStep-- },
-                    modifier = Modifier.testTag("onboarding_top_back_btn")
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Volver al paso anterior",
-                        tint = Color.White.copy(alpha = 0.7f)
-                    )
-                }
-            } else {
-                Spacer(modifier = Modifier.width(48.dp))
-            }
-
-            TextButton(
-                onClick = { onSkipOnboarding() },
-                modifier = Modifier.testTag("onboarding_bypass_btn")
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ExitToApp,
-                        contentDescription = null,
-                        tint = Color(0xFFE75C31),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "Salir de Prueba",
-                        color = Color(0xFFE75C31),
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-            }
-        }
-        // Dynamic Fixed Header/Progress Tracker
-        if (currentStep > 1) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (currentStep == 2) "Paso 2 de 3: Datos Personales" else "Paso 3 de 3: Tu Vehículo",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        ),
-                        color = Color(0xFFE75C31)
-                    )
-                    Text(
-                        text = if (currentStep == 2) "50% Completado" else "100% Completado",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.5f)
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { if (currentStep == 2) 0.5f else 1.0f },
+            (1..3).forEach { step ->
+                val isSelected = currentStep == step
+                val dotWidth by animateDpAsState(targetValue = if (isSelected) 24.dp else 8.dp, label = "dotWidth")
+                val dotColor by animateColorAsState(targetValue = if (isSelected) Color(0xFFE75C31) else Color.White.copy(alpha = 0.3f), label = "dotColor")
+                
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp)),
-                    color = Color(0xFFE75C31),
-                    trackColor = Color.White.copy(alpha = 0.08f)
+                        .padding(horizontal = 4.dp)
+                        .height(8.dp)
+                        .width(dotWidth)
+                        .clip(CircleShape)
+                        .background(dotColor)
                 )
             }
         }
@@ -465,9 +405,9 @@ fun RegisterScreenLayout(
                                 onClick = { currentStep = 2 },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(56.dp)
+                                    .height(52.dp)
                                     .testTag("onboarding_start_button"),
-                                shape = RoundedCornerShape(18.dp),
+                                shape = RoundedCornerShape(26.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFFE75C31),
                                     contentColor = Color.White
@@ -704,9 +644,9 @@ fun RegisterScreenLayout(
                                     onClick = { currentStep = 1 },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(56.dp)
+                                        .height(52.dp)
                                         .testTag("register_back_step_1"),
-                                    shape = RoundedCornerShape(18.dp),
+                                    shape = RoundedCornerShape(26.dp),
                                     border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White.copy(alpha = 0.15f)),
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         contentColor = Color.White
@@ -744,9 +684,9 @@ fun RegisterScreenLayout(
                                     },
                                     modifier = Modifier
                                         .weight(1.5f)
-                                        .height(56.dp)
+                                        .height(52.dp)
                                         .testTag("register_next_step_3"),
-                                    shape = RoundedCornerShape(18.dp),
+                                    shape = RoundedCornerShape(26.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFFE75C31),
                                         contentColor = Color.White
@@ -1273,9 +1213,9 @@ fun RegisterScreenLayout(
                                     onClick = { currentStep = 2 },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(56.dp)
+                                        .height(52.dp)
                                         .testTag("register_back_step_2"),
-                                    shape = RoundedCornerShape(18.dp),
+                                    shape = RoundedCornerShape(26.dp),
                                     border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White.copy(alpha = 0.15f)),
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         contentColor = Color.White
@@ -1322,9 +1262,9 @@ fun RegisterScreenLayout(
                                     },
                                     modifier = Modifier
                                         .weight(1.5f)
-                                        .height(56.dp)
+                                        .height(52.dp)
                                         .testTag("register_submit_button"),
-                                    shape = RoundedCornerShape(18.dp),
+                                    shape = RoundedCornerShape(26.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFFE75C31),
                                         contentColor = Color.White
@@ -1348,6 +1288,34 @@ fun RegisterScreenLayout(
                             }
                             
                             Spacer(modifier = Modifier.height(24.dp))
+                            
+                            TextButton(
+                                onClick = { onSkipOnboarding() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("onboarding_bypass_btn")
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ExitToApp,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Salir de Prueba",
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(32.dp))
                         }
                     }
                 }
@@ -1572,9 +1540,9 @@ fun LoginScreenLayout(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .height(52.dp)
                 .testTag("login_submit_button"),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(26.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFFE75C31),
                 contentColor = Color.White

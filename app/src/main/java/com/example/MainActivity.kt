@@ -37,6 +37,11 @@ import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.GarageTab
 import com.example.ui.viewmodel.GarageViewModel
 import com.example.ui.viewmodel.GarageViewModelFactory
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.example.worker.OdometerUpdateWorker
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
 
@@ -54,6 +59,14 @@ class MainActivity : ComponentActivity() {
         
         // Setup strict Edge-to-Edge full notch-safe content flow
         enableEdgeToEdge()
+        
+        // Enqueue background predictive maintenance worker (runs once a day)
+        val workRequest = PeriodicWorkRequestBuilder<OdometerUpdateWorker>(1, TimeUnit.DAYS).build()
+        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+            "OdometerUpdateWork",
+            ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        )
         
         setContent {
             val isDarkTheme by viewModel.isDarkTheme.collectAsState()
@@ -83,6 +96,7 @@ fun MainAppContainer(viewModel: GarageViewModel) {
             NavigationBar(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(68.dp)
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .testTag("app_bottom_nav_bar"),
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
@@ -98,6 +112,7 @@ fun MainAppContainer(viewModel: GarageViewModel) {
                             contentDescription = "Inicio"
                         )
                     },
+                    label = { Text("Inicio", style = MaterialTheme.typography.labelSmall) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.primary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -116,6 +131,7 @@ fun MainAppContainer(viewModel: GarageViewModel) {
                             contentDescription = "Añadir"
                         )
                     },
+                    label = { Text("Añadir", style = MaterialTheme.typography.labelSmall) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.primary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -134,6 +150,7 @@ fun MainAppContainer(viewModel: GarageViewModel) {
                             contentDescription = "Historial"
                         )
                     },
+                    label = { Text("Historial", style = MaterialTheme.typography.labelSmall) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.primary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -152,6 +169,7 @@ fun MainAppContainer(viewModel: GarageViewModel) {
                             contentDescription = "Perfil"
                         )
                     },
+                    label = { Text("Perfil", style = MaterialTheme.typography.labelSmall) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.primary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -172,19 +190,27 @@ fun MainAppContainer(viewModel: GarageViewModel) {
             when (currentTab) {
                 GarageTab.DASHBOARD -> DashboardScreen(
                     viewModel = viewModel,
-                    modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+                    modifier = Modifier
+                        .padding(bottom = innerPadding.calculateBottomPadding())
+                        .consumeWindowInsets(innerPadding)
                 )
                 GarageTab.HISTORY -> HistoryScreen(
                     viewModel = viewModel,
-                    modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+                    modifier = Modifier
+                        .padding(bottom = innerPadding.calculateBottomPadding())
+                        .consumeWindowInsets(innerPadding)
                 )
                 GarageTab.ADD -> AddServiceScreen(
                     viewModel = viewModel,
-                    modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+                    modifier = Modifier
+                        .padding(bottom = innerPadding.calculateBottomPadding())
+                        .consumeWindowInsets(innerPadding)
                 )
                 GarageTab.PROFILE -> ProfileScreen(
                     viewModel = viewModel,
-                    modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+                    modifier = Modifier
+                        .padding(bottom = innerPadding.calculateBottomPadding())
+                        .consumeWindowInsets(innerPadding)
                 )
             }
         }

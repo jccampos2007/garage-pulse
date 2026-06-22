@@ -57,12 +57,44 @@ class GarageRepository(private val dao: DatabaseDao) {
 
     suspend fun insertServiceLog(serviceLog: ServiceLog): Long {
         val rowId = dao.insertServiceLog(serviceLog)
+        
+        // Recalculate KPD (Case A) when a new log is inserted
+        recalculateVehicleKpd(serviceLog.vehicleId)
+        
         try {
             mockApiService.createServiceLog(serviceLog.copy(id = rowId.toInt()))
         } catch (e: Exception) {
             // Handled offline gracefully
         }
         return rowId
+    }
+
+    suspend fun recalculateVehicleKpd(vehicleId: Int) {
+        val vehicle = dao.getVehicleById(vehicleId) ?: return
+        val logs = dao.getServiceLogsForVehicle(vehicleId).firstOrNull() ?: emptyList()
+        
+        var minDate = vehicle.initialDate
+        var minKm = vehicle.initialKm
+        
+        val sortedLogs = logs.sortedBy { it.date }
+        if (sortedLogs.isNotEmpty()) {
+            if (minDate == null || sortedLogs.first().date < minDate) {
+                minDate = sortedLogs.first().date
+                minKm = sortedLogs.first().mileage
+            }
+            
+            val maxDate = sortedLogs.last().date
+            val maxKm = sortedLogs.last().mileage
+            
+            if (minDate != null && minKm != null && maxDate > minDate) {
+                val daysDiff = (maxDate - minDate) / (1000 * 60 * 60 * 24).toDouble()
+                if (daysDiff >= 1.0) {
+                    val kpd = (maxKm - minKm) / daysDiff
+                    val updatedVehicle = vehicle.copy(calculatedKpd = maxOf(0.0, kpd))
+                    dao.updateVehicle(updatedVehicle)
+                }
+            }
+        }
     }
 
     suspend fun deleteServiceLog(serviceLog: ServiceLog) {

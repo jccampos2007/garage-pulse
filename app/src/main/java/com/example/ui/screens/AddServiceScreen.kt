@@ -2,7 +2,9 @@ package com.example.ui.screens
 
 import android.app.DatePickerDialog
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,10 +20,12 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -42,6 +46,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import com.example.ui.components.PremiumBadgeIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -306,12 +311,73 @@ fun AddServiceScreen(
         )
     }
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val isScrolled by remember { derivedStateOf { scrollBehavior.state.overlappedFraction > 0.01f } }
+    val headerColor by animateColorAsState(
+        targetValue = if (isScrolled) MaterialTheme.colorScheme.surfaceContainerLowest else Color.Transparent,
+        label = "headerColor"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isScrolled) MaterialTheme.colorScheme.primary else Color.White,
+        label = "contentColor"
+    )
+
     Scaffold(
-        modifier = modifier
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            Column(modifier = Modifier.background(headerColor)) {
+                Spacer(modifier = Modifier.statusBarsPadding().height(16.dp))
+                TopAppBar(
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text(
+                                text = "Nuevo Servicio",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = contentColor
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(
+                            onClick = { viewModel.selectTab(GarageTab.DASHBOARD) },
+                            modifier = Modifier.testTag("form_close_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Atrás",
+                                tint = contentColor
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = { viewModel.selectTab(GarageTab.PROFILE) },
+                            modifier = Modifier.testTag("form_profile_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Perfil",
+                                tint = contentColor
+                            )
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent
+                    )
+                )
+            }
+        }
     ) { innerPadding ->
         Box(
             modifier = Modifier
-                .padding(bottom = innerPadding.calculateBottomPadding())
                 .fillMaxSize()
                 .background(
                     if (isDark) {
@@ -325,6 +391,7 @@ fun AddServiceScreen(
                         SolidColor(MaterialTheme.colorScheme.background)
                     }
                 )
+                .padding(bottom = innerPadding.calculateBottomPadding())
         ) {
 
 
@@ -348,7 +415,19 @@ fun AddServiceScreen(
                             )
                         )
                 ) {
-
+                    // Subtle glowing radial background highlight
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFFe75c31).copy(alpha = 0.22f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
 
                     VehiclePhotoOrIllustration(
                         vehicle = activeVehicle,
@@ -471,6 +550,8 @@ fun AddServiceScreen(
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                         color = if (isAiMode) (if (isDark) Color.White else Color(0xFFE75C31)) else (if (isDark) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                     )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    PremiumBadgeIcon(size = 14.dp)
                 }
             }
 
@@ -608,250 +689,117 @@ fun AddServiceScreen(
 
                             Spacer(modifier = Modifier.height(2.dp))
 
-                            // Snug Date Row
+                            // Snug Kilometraje and Date Row
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
-                                        val calendar = Calendar.getInstance()
-                                        calendar.timeInMillis = dateLong
-                                        DatePickerDialog(
-                                            context,
-                                            { _, year, month, dayOfMonth ->
-                                                val newCal = Calendar.getInstance()
-                                                newCal.set(year, month, dayOfMonth)
-                                                viewModel.setFormDate(newCal.timeInMillis)
-                                            },
-                                            calendar.get(Calendar.YEAR),
-                                            calendar.get(Calendar.MONTH),
-                                            calendar.get(Calendar.DAY_OF_MONTH)
-                                        ).show()
-                                    }
-                                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.CalendarToday,
-                                    contentDescription = null,
-                                    tint = Color(0xFFE75C31),
-                                    modifier = Modifier.size(20.dp)
+                                // Kilometraje
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Outlined.Speed, contentDescription = null, tint = Color(0xFFE75C31), modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Kilometraje", style = MaterialTheme.typography.labelSmall, color = if (isDark) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    BasicTextField(
+                                        value = mileageStr,
+                                        onValueChange = { viewModel.setFormMileage(it) },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        singleLine = true,
+                                        textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium, color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface),
+                                        modifier = Modifier.fillMaxWidth().testTag("mileage_input"),
+                                        decorationBox = { innerTextField ->
+                                            if (mileageStr.isEmpty()) {
+                                                Text("Ej. 45200", style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp), color = if (isDark) Color.White.copy(alpha = 0.35f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                            }
+                                            innerTextField()
+                                        }
+                                    )
+                                }
+
+                                // Divider
+                                Box(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .height(36.dp)
+                                        .background(if (isDark) Color.White.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                 )
 
-                                Spacer(modifier = Modifier.width(12.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Fecha del Servicio",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (isDark) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = FontWeight.Bold
-                                    )
-
-                                    Spacer(modifier = Modifier.height(2.dp))
-
+                                // Fecha
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            val calendar = Calendar.getInstance()
+                                            calendar.timeInMillis = dateLong
+                                            DatePickerDialog(
+                                                context,
+                                                { _, year, month, dayOfMonth ->
+                                                    val newCal = Calendar.getInstance()
+                                                    newCal.set(year, month, dayOfMonth)
+                                                    viewModel.setFormDate(newCal.timeInMillis)
+                                                },
+                                                calendar.get(Calendar.YEAR),
+                                                calendar.get(Calendar.MONTH),
+                                                calendar.get(Calendar.DAY_OF_MONTH)
+                                            ).show()
+                                        }
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Color(0xFFE75C31), modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Fecha", style = MaterialTheme.typography.labelSmall, color = if (isDark) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
                                     Text(
                                         text = dateDisplay,
-                                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium),
                                         color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
                                         modifier = Modifier.testTag("date_input")
                                     )
                                 }
                             }
+
+                            Spacer(modifier = Modifier.height(2.dp))
+                            
+                            // Estimado / Usar Actual helper
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp)
+                                    .padding(bottom = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Estimado: $estimateDisplay $unitLabel",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    color = if (isDark) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Text(
+                                    text = "Usar Actual",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFFE75C31),
+                                    modifier = Modifier
+                                        .clickable {
+                                            activeVehicle?.odometer?.let {
+                                                viewModel.setFormMileage(it.toInt().toString())
+                                            }
+                                        }
+                                        .testTag("use_actual_mileage_button")
+                                )
+                            }
                         }
                     }
                 }
 
-                // SECTION 2: DETALLES DEL VEHÍCULO
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "DETALLES DEL VEHÍCULO",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isDark) Color.White.copy(alpha = 0.62f) else MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.padding(start = 4.dp),
-                        fontWeight = FontWeight.Bold
-                    )
 
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isDark) Color.White.copy(alpha = 0.04f) else Color.White
-                        ),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = if (isDark) 0.dp else 2.dp
-                        ),
-                        border = CardDefaults.outlinedCardBorder().copy(
-                            brush = if (isDark) {
-                                Brush.linearGradient(
-                                    colors = listOf(
-                                        Color.White.copy(alpha = 0.15f),
-                                        Color.White.copy(alpha = 0.05f)
-                                    )
-                                )
-                            } else {
-                                SolidColor(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
-                            }
-                        )
-                    ) {
-                        Column {
-                            // Cost Total Input field
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Payments,
-                                    contentDescription = null,
-                                    tint = Color(0xFFE75C31),
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .padding(top = 4.dp)
-                                )
-
-                                Spacer(modifier = Modifier.width(16.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Costo Total",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (isDark) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = FontWeight.Bold
-                                    )
-
-                                    TextField(
-                                        value = costStr,
-                                        onValueChange = { viewModel.setFormCost(it) },
-                                        prefix = {
-                                            Text(
-                                                text = "$ ",
-                                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
-                                                color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
-                                            )
-                                        },
-                                        placeholder = {
-                                            Text(
-                                                text = "0.00",
-                                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
-                                                color = if (isDark) Color.White.copy(alpha = 0.35f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                            )
-                                        },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                        singleLine = true,
-                                        colors = TextFieldDefaults.colors(
-                                            focusedContainerColor = Color.Transparent,
-                                            unfocusedContainerColor = Color.Transparent,
-                                            disabledContainerColor = Color.Transparent,
-                                            focusedIndicatorColor = Color.Transparent,
-                                            unfocusedIndicatorColor = Color.Transparent,
-                                            disabledIndicatorColor = Color.Transparent,
-                                            focusedTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
-                                            unfocusedTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
-                                        ),
-                                        textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .testTag("cost_input")
-                                    )
-                                }
-                            }
-
-                            HorizontalDivider(
-                                modifier = Modifier.padding(start = 56.dp),
-                                thickness = 0.5.dp,
-                                color = if (isDark) Color.White.copy(alpha = 0.10f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-
-                            // Mileage Input field
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Speed,
-                                    contentDescription = null,
-                                    tint = Color(0xFFE75C31),
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .padding(top = 4.dp)
-                                )
-
-                                Spacer(modifier = Modifier.width(16.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Kilometraje",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (isDark) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = FontWeight.Bold
-                                    )
-
-                                    TextField(
-                                        value = mileageStr,
-                                        onValueChange = { viewModel.setFormMileage(it) },
-                                        placeholder = {
-                                            Text(
-                                                text = "45,200",
-                                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
-                                                color = if (isDark) Color.White.copy(alpha = 0.35f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                            )
-                                        },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        singleLine = true,
-                                        colors = TextFieldDefaults.colors(
-                                            focusedContainerColor = Color.Transparent,
-                                            unfocusedContainerColor = Color.Transparent,
-                                            disabledContainerColor = Color.Transparent,
-                                            focusedIndicatorColor = Color.Transparent,
-                                            unfocusedIndicatorColor = Color.Transparent,
-                                            disabledIndicatorColor = Color.Transparent,
-                                            focusedTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
-                                            unfocusedTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
-                                        ),
-                                        textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .testTag("mileage_input")
-                                    )
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Estimado: $estimateDisplay $unitLabel",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                            color = if (isDark) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontWeight = FontWeight.Bold
-                                        )
-
-                                        Text(
-                                            text = "Usar Actual",
-                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = Color(0xFFE75C31),
-                                            modifier = Modifier
-                                                .clickable {
-                                                    // Fill-in current vehicle odometer directly!
-                                                    activeVehicle?.odometer?.let {
-                                                        viewModel.setFormMileage(it.toInt().toString())
-                                                    }
-                                                }
-                                                .testTag("use_actual_mileage_button")
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
 
                 // SECTION 3: NOTAS ADICIONALES
                 Column(
@@ -917,50 +865,6 @@ fun AddServiceScreen(
                     }
                 }
 
-                // INFO CARD STATUS SYNC ALERT MESSAGE
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) Color.White.copy(alpha = 0.04f) else Color.White
-                    ),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = if (isDark) 0.dp else 2.dp
-                    ),
-                    border = CardDefaults.outlinedCardBorder().copy(
-                        brush = if (isDark) {
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.15f),
-                                    Color.White.copy(alpha = 0.05f)
-                                )
-                            )
-                        } else {
-                            SolidColor(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
-                        }
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CloudQueue,
-                            contentDescription = "Sincronización en la nube",
-                            tint = Color(0xFFE75C31),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Text(
-                            text = "Tus datos se sincronizan automáticamente con la nube para que nunca los pierdas.",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = if (isDark) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 16.sp
-                        )
-                    }
-                }
 
                 // PRIMARY SAVING ACTION BUTTON
                 Button(
@@ -1356,49 +1260,7 @@ fun AddServiceScreen(
         }
     }
 
-    // Overlaid transparent TopAppBar so the image background stretches underneath it
-    TopAppBar(
-        title = {
-            Text(
-                text = "Nuevo Servicio",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold
-                ),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        },
-        navigationIcon = {
-            IconButton(
-                onClick = { viewModel.selectTab(GarageTab.DASHBOARD) },
-                modifier = Modifier.testTag("form_close_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Atrás",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        },
-        actions = {
-            IconButton(
-                onClick = { viewModel.selectTab(GarageTab.PROFILE) },
-                modifier = Modifier.testTag("form_profile_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Perfil",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color.Transparent
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-    )
-}
+    }
 }
 
     // AI dialog extraction preview validation

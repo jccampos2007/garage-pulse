@@ -29,8 +29,13 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     private val _showSplash = MutableStateFlow(true)
     val showSplash: StateFlow<Boolean> = _showSplash.asStateFlow()
 
+    // --- Tab state ---
+    private val _currentTab = MutableStateFlow(GarageTab.DASHBOARD)
+    val currentTab: StateFlow<GarageTab> = _currentTab.asStateFlow()
+
     fun dismissSplash() {
         _showSplash.value = false
+        _currentTab.value = GarageTab.DASHBOARD
     }
 
     fun registerUser(name: String, email: String, password: String, vehicleBrand: String, vehicleModel: String, initialOdometer: Double, licensePlate: String, vehicleType: String = "Car") {
@@ -44,6 +49,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
 
         _isRegistered.value = true
         _isLoggedIn.value = true
+        _currentTab.value = GarageTab.DASHBOARD
 
         viewModelScope.launch {
             // Update profile with registered name and email
@@ -105,6 +111,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
             }
             prefs.edit().putBoolean("is_logged_in", true).apply()
             _isLoggedIn.value = true
+            _currentTab.value = GarageTab.DASHBOARD
             return true
         }
         return false
@@ -126,8 +133,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     }
 
     // --- Tab state ---
-    private val _currentTab = MutableStateFlow(GarageTab.DASHBOARD)
-    val currentTab: StateFlow<GarageTab> = _currentTab.asStateFlow()
+    // Moved to top
 
     fun selectTab(tab: GarageTab) {
         _currentTab.value = tab
@@ -167,42 +173,10 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
         _isDarkTheme.value = !_isDarkTheme.value
     }
 
-    // --- API Sync States ---
-    private val _syncState = MutableStateFlow<com.example.data.api.NetworkResult<String>>(com.example.data.api.NetworkResult.Idle)
-    val syncState: StateFlow<com.example.data.api.NetworkResult<String>> = _syncState.asStateFlow()
-
-    fun triggerRemoteSync() {
-        viewModelScope.launch {
-            _syncState.value = com.example.data.api.NetworkResult.Loading
-            kotlinx.coroutines.delay(1200) // simulated animation delay
-            val success = repository.syncLocalWithRemote()
-            if (success) {
-                _syncState.value = com.example.data.api.NetworkResult.Success("¡Sincronización completada!")
-            } else {
-                _syncState.value = com.example.data.api.NetworkResult.Error("Error de conexión al servidor remoto.")
-            }
-        }
-    }
-
-    fun resetSyncState() {
-        _syncState.value = com.example.data.api.NetworkResult.Idle
-    }
-
     init {
-        // Pre-populate DB if it doesn't have any vehicles yet, and perform silent automatic remote sync on launch
+        // Pre-populate DB if it doesn't have any vehicles yet
         viewModelScope.launch {
             repository.prepopulateIfEmpty()
-            // Auto sync: fetch remote API resources and overlay them on starting indices silently in the background
-            _syncState.value = com.example.data.api.NetworkResult.Loading
-            val success = repository.syncLocalWithRemote()
-            if (success) {
-                _syncState.value = com.example.data.api.NetworkResult.Success("Sincronizado automáticamente.")
-                // Set back to idle or success
-                kotlinx.coroutines.delay(2000)
-                _syncState.value = com.example.data.api.NetworkResult.Idle
-            } else {
-                _syncState.value = com.example.data.api.NetworkResult.Idle
-            }
         }
     }
 
@@ -304,10 +278,52 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
         }
     }
 
+    fun togglePremiumTelemetry(enabled: Boolean) {
+        viewModelScope.launch {
+            val profile = userProfile.value
+            repository.saveUserProfile(profile.copy(isPremium = enabled))
+            
+            val intent = android.content.Intent(context, com.example.service.TelemetryService::class.java)
+            if (enabled) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } else {
+                context.stopService(intent)
+            }
+        }
+    }
+
+    // --- AI Server Integration ---
+    private val aiApi = com.example.data.api.RetrofitClient.aiServerApi
+
+    fun processAudioFile(fileUri: String, onSuccess: (String, Int) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            // Implementation pending: Upload multipart file to process-audio
+            // onSuccess("Mantenimiento Sugerido", 50000)
+        }
+    }
+
+    fun scanDashboardOdometer(imageUri: String, onSuccess: (Int) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            // Implementation pending: Upload multipart image to scan-odometer
+            // onSuccess(45200)
+        }
+    }
+
     fun updateProfileName(newName: String) {
         viewModelScope.launch {
             val profile = userProfile.value
             repository.saveUserProfile(profile.copy(name = newName))
+        }
+    }
+
+    fun updateAvatarUrl(newUrl: String) {
+        viewModelScope.launch {
+            val profile = userProfile.value
+            repository.saveUserProfile(profile.copy(avatarUrl = newUrl))
         }
     }
 }

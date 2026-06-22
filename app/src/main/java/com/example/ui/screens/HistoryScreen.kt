@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,9 +16,11 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -63,47 +66,69 @@ fun HistoryScreen(
         filteredLogs.groupBy { getMonthHeader(it.date) }
     }
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val isScrolled by remember { derivedStateOf { scrollBehavior.state.overlappedFraction > 0.01f } }
+    val headerColor by animateColorAsState(
+        targetValue = if (isScrolled) MaterialTheme.colorScheme.surfaceContainerLowest else Color.Transparent,
+        label = "headerColor"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isScrolled) MaterialTheme.colorScheme.primary else Color.White,
+        label = "contentColor"
+    )
+
     Scaffold(
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+            Column(modifier = Modifier.background(headerColor)) {
+                Spacer(modifier = Modifier.statusBarsPadding().height(16.dp))
+                TopAppBar(
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text(
+                                text = "Historial",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = contentColor
+                            )
+                        }
+                    },
+                    navigationIcon = {
                         IconButton(
                             onClick = { viewModel.selectTab(GarageTab.DASHBOARD) }
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
                                 contentDescription = "Atrás",
-                                tint = MaterialTheme.colorScheme.primary
+                                tint = contentColor
                             )
                         }
-                        Text(
-                            text = "Historial",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = { viewModel.selectTab(GarageTab.PROFILE) },
+                            modifier = Modifier.testTag("history_profile_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Perfil",
+                                tint = contentColor
                             )
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { viewModel.selectTab(GarageTab.PROFILE) },
-                        modifier = Modifier.testTag("history_profile_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Perfil",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent
+                    )
                 )
-            )
+            }
         },
         floatingActionButton = {
             FloatingActionButton(
@@ -122,34 +147,14 @@ fun HistoryScreen(
                 )
             }
         },
-        modifier = modifier
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(innerPadding)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
+                .padding(innerPadding)
         ) {
-            // Screen Title & Subtitle block
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Text(
-                    text = "Historial",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Seguimiento completo de mantenimiento",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
+
 
             // Filter Chips Row
             LazyRow(

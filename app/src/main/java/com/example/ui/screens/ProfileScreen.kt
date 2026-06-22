@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
@@ -18,9 +19,11 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -36,12 +39,17 @@ import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.compose.AsyncImagePainter
+import coil.compose.AsyncImage
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.google.accompanist.permissions.isGranted
 import androidx.compose.ui.layout.ContentScale
 import com.example.data.model.Vehicle
 import com.example.ui.viewmodel.GarageTab
 import com.example.ui.viewmodel.GarageViewModel
+import com.example.ui.components.PremiumBadgeIcon
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun ProfileScreen(
     viewModel: GarageViewModel,
@@ -72,6 +80,30 @@ fun ProfileScreen(
     var modelError by remember { mutableStateOf(false) }
     var plateError by remember { mutableStateOf(false) }
     var odometerError by remember { mutableStateOf(false) }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var showPhotoSourceDialog by remember { mutableStateOf(false) }
+
+    val galleryLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let {
+            viewModel.updateAvatarUrl(it.toString())
+        }
+    }
+
+    val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: android.graphics.Bitmap? ->
+        bitmap?.let {
+            val file = java.io.File(context.cacheDir, "avatar_${System.currentTimeMillis()}.jpg")
+            val out = java.io.FileOutputStream(file)
+            it.compress(android.graphics.Bitmap.CompressFormat.JPEG, 100, out)
+            out.flush()
+            out.close()
+            viewModel.updateAvatarUrl(android.net.Uri.fromFile(file).toString())
+        }
+    }
 
     // Vehicles list dialog
     if (showVehiclesDialog) {
@@ -146,6 +178,78 @@ fun ProfileScreen(
             confirmButton = {
                 TextButton(onClick = { showVehiclesDialog = false }) {
                     Text("Cerrar")
+                }
+            }
+        )
+    }
+
+    // Photo Source Dialog
+    if (showPhotoSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { showPhotoSourceDialog = false },
+            title = {
+                Text(
+                    text = "Foto de Perfil",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Tomar Foto
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showPhotoSourceDialog = false
+                                cameraLauncher.launch(null)
+                            }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "Cámara",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Text(
+                            text = "Tomar Foto",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+
+                    // Seleccionar de Galería
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showPhotoSourceDialog = false
+                                galleryLauncher.launch("image/*")
+                            }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoLibrary,
+                            contentDescription = "Galería",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Text(
+                            text = "Seleccionar de la Galería",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPhotoSourceDialog = false }) {
+                    Text("Cancelar")
                 }
             }
         )
@@ -766,48 +870,58 @@ fun ProfileScreen(
         )
     }
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val isScrolled by remember { derivedStateOf { scrollBehavior.state.overlappedFraction > 0.01f } }
+    val headerColor by animateColorAsState(
+        targetValue = if (isScrolled) MaterialTheme.colorScheme.surfaceContainerLowest else Color.Transparent,
+        label = "headerColor"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isScrolled) MaterialTheme.colorScheme.primary else Color.White,
+        label = "contentColor"
+    )
+
     Scaffold(
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+            Column(modifier = Modifier.background(headerColor)) {
+                Spacer(modifier = Modifier.statusBarsPadding().height(16.dp))
+                TopAppBar(
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text(
+                                text = "Perfil",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = contentColor
+                            )
+                        }
+                    },
+                    navigationIcon = {
                         IconButton(
                             onClick = { viewModel.selectTab(GarageTab.DASHBOARD) }
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
                                 contentDescription = "Atrás",
-                                tint = MaterialTheme.colorScheme.primary
+                                tint = contentColor
                             )
                         }
-                        Text(
-                            text = "Perfil",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { viewModel.selectTab(GarageTab.PROFILE) }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Ajustes",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+                    },
+                    scrollBehavior = scrollBehavior,
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent
+                    )
                 )
-            )
+            }
         },
-        modifier = modifier
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -832,15 +946,25 @@ fun ProfileScreen(
                         modifier = Modifier
                             .size(96.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                            .clickable { showPhotoSourceDialog = true },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                            modifier = Modifier.size(54.dp)
-                        )
+                        if (userProfile.avatarUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = userProfile.avatarUrl,
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                                modifier = Modifier.size(54.dp)
+                            )
+                        }
                     }
 
                     // Edit Pencil overlay icon
@@ -850,7 +974,7 @@ fun ProfileScreen(
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primary)
                             .align(Alignment.BottomEnd)
-                            .clickable { /* edit profile */ },
+                            .clickable { showPhotoSourceDialog = true },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -1066,6 +1190,8 @@ fun ProfileScreen(
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                PremiumBadgeIcon(size = 14.dp)
                             }
                             Icon(
                                 imageVector = Icons.Default.ChevronRight,
@@ -1342,9 +1468,82 @@ fun ProfileScreen(
                         }
                     }
 
+                    // GPS Tracking Segment (Premium)
+                    val locationPermissionsState = rememberMultiplePermissionsState(
+                        permissions = listOf(
+                            android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                            android.Manifest.permission.ACCESS_FINE_LOCATION
+                        )
+                    )
+                    
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.GpsFixed,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        "Rastreo",
+                                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    PremiumBadgeIcon(size = 14.dp)
+                                }
+                                Text(
+                                    "Usa GPS en segundo plano",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        
+                        Switch(
+                            checked = locationPermissionsState.allPermissionsGranted && userProfile.isPremium,
+                            onCheckedChange = { isChecked ->
+                                if (isChecked) {
+                                    if (locationPermissionsState.allPermissionsGranted) {
+                                        viewModel.togglePremiumTelemetry(true)
+                                    } else {
+                                        locationPermissionsState.launchMultiplePermissionRequest()
+                                    }
+                                } else {
+                                    viewModel.togglePremiumTelemetry(false)
+                                }
+                            }
+                        )
+                    }
+
+                    androidx.compose.runtime.LaunchedEffect(locationPermissionsState.allPermissionsGranted) {
+                        // Si acaban de otorgar los permisos y todavía no es premium en DB (pero querían activarlo)
+                        // Para simplificar, si dan permiso, asumimos que querían activar el premium telemetry.
+                        if (locationPermissionsState.allPermissionsGranted && !userProfile.isPremium) {
+                            viewModel.togglePremiumTelemetry(true)
+                        }
+                    }
+
                     // Divider and Theme Toggle Segments
                     val isDark = isDarkTheme
-                    Divider(
+                    HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         thickness = 0.5.dp,
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -1367,7 +1566,7 @@ fun ProfileScreen(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                "Tema de la App",
+                                "Tema",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -1422,169 +1621,6 @@ fun ProfileScreen(
                 }
             }
 
-            // SECTION: SERVICIO API REST (MOCK)
-            val syncState by viewModel.syncState.collectAsState()
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "SERVICIO API REST (MOCK)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(start = 4.dp),
-                    fontWeight = FontWeight.Bold
-                )
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainerLowest else Color.White
-                    ),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = if (isDarkTheme) 0.dp else 2.dp
-                    ),
-                    border = CardDefaults.outlinedCardBorder().copy(
-                        brush = if (isDarkTheme) {
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.05f)
-                                )
-                            )
-                        } else {
-                            SolidColor(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
-                        }
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "Prueba de Cliente API con Endpoints HTTP Mock",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Simula solicitudes HTTP GET, POST, PUT y DELETE contra un servidor REST backend local en memoria con latencia real de red.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        when (val state = syncState) {
-                            is com.example.data.api.NetworkResult.Idle -> {
-                                Button(
-                                    onClick = { viewModel.triggerRemoteSync() },
-                                    modifier = Modifier.fillMaxWidth().testTag("sync_api_button"),
-                                    contentPadding = PaddingValues(vertical = 12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Sync,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Sincronizar con API Cloud")
-                                }
-                            }
-                            is com.example.data.api.NetworkResult.Loading -> {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        color = MaterialTheme.colorScheme.primary,
-                                        strokeWidth = 2.5.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        text = "Conectando al API REST Mock...",
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                            is com.example.data.api.NetworkResult.Success -> {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .background(
-                                                color = Color(0xFFE8F5E9),
-                                                shape = RoundedCornerShape(8.dp)
-                                            )
-                                            .padding(12.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = null,
-                                            tint = Color(0xFF2E7D32),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = state.data,
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = Color(0xFF2E7D32)
-                                        )
-                                    }
-                                    TextButton(
-                                        onClick = { viewModel.resetSyncState() }
-                                    ) {
-                                        Text("Aceptar")
-                                    }
-                                }
-                            }
-                            is com.example.data.api.NetworkResult.Error -> {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .background(
-                                                color = Color(0xFFFFEBEE),
-                                                shape = RoundedCornerShape(8.dp)
-                                            )
-                                            .padding(12.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Error,
-                                            contentDescription = null,
-                                            tint = Color(0xFFC62828),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = state.message,
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = Color(0xFFC62828)
-                                        )
-                                    }
-                                    TextButton(
-                                        onClick = { viewModel.resetSyncState() }
-                                    ) {
-                                        Text("Reintentar")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
 
             // CORRESPONDING CERRAR SESIÓN RED BUTTON
             Button(
@@ -1593,9 +1629,9 @@ fun ProfileScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .height(52.dp)
                     .testTag("logout_button"),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(26.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                     contentColor = MaterialTheme.colorScheme.error
@@ -1629,9 +1665,9 @@ fun ProfileScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .height(52.dp)
                     .testTag("temp_onboarding_shortcut"),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(26.dp),
                 border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFE75C31)),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = Color(0xFFE75C31)
@@ -1665,7 +1701,7 @@ fun ProfileScreen(
                     text = "GaragePulse v2.4.0 (Build 1082)",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outlineVariant,
-                    modifier = Modifier.padding(bottom = 60.dp), // Extra pad to avoid bottom navigation overlapping
+                    modifier = Modifier.padding(bottom = 24.dp), // Normal pad
                     fontSize = 11.sp
                 )
             }

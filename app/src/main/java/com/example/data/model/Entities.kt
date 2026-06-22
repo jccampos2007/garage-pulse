@@ -16,7 +16,17 @@ data class Vehicle(
     val odometer: Double = 42500.0,
     val isActive: Boolean = false,
     val type: String = "Car", // "Car" or "Motorcycle"
-    val photoUri: String? = null
+    val photoUri: String? = null,
+    
+    // Predictive Maintenance
+    val initialKm: Double? = null,
+    val initialDate: Long? = null,
+    val lastUpdatedDate: Long = System.currentTimeMillis(),
+    val calculatedKpd: Double = 0.0,
+    
+    // Premium Telemetry & Customization
+    val lastKnownLocation: String? = null,
+    val customIllustrationUrl: String? = null
 ) : Serializable
 
 @Entity(tableName = "service_logs")
@@ -38,5 +48,6 @@ data class UserProfile(
     val name: String = "Carlos Rodríguez",
     val email: String = "carlos.rod@garagepulse.app",
     val avatarUrl: String = "",
-    val useKm: Boolean = true
+    val useKm: Boolean = true,
+    val isPremium: Boolean = false
 ) : Serializable

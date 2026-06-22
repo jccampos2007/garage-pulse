@@ -13,8 +13,14 @@ interface DatabaseDao {
     @Query("SELECT * FROM vehicles ORDER BY id DESC")
     fun getAllVehicles(): Flow<List<Vehicle>>
 
+    @Query("SELECT * FROM vehicles")
+    suspend fun getAllVehiclesList(): List<Vehicle>
+
     @Query("SELECT * FROM vehicles WHERE isActive = 1 LIMIT 1")
     fun getActiveVehicleFlow(): Flow<Vehicle?>
+
+    @Query("SELECT * FROM vehicles WHERE isActive = 1 LIMIT 1")
+    suspend fun getActiveVehicleDirect(): Vehicle?
 
     @Query("SELECT * FROM vehicles WHERE id = :id")
     suspend fun getVehicleById(id: Int): Vehicle?
