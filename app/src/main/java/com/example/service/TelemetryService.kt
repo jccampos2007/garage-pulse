@@ -102,8 +102,8 @@ class TelemetryService : Service() {
                     
                     val distanceKm = calculateHaversineDistance(prevLat, prevLon, location.latitude, location.longitude)
                     
-                    // Update currentKm (odometer) every 5km
-                    if (distanceKm >= 5.0) {
+                    // Update currentKm (odometer) every 200 meters (0.2 km)
+                    if (distanceKm >= 0.2) {
                         val newOdometer = activeVehicle.odometer + distanceKm
                         val updatedVehicle = activeVehicle.copy(
                             odometer = newOdometer,
