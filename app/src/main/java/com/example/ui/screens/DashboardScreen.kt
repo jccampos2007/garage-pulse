@@ -218,7 +218,7 @@ fun DashboardScreen(
                                 }
                             }
                             Text(
-                                text = userProfile.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() },
+                                text = userProfile.name.split(" ").joinToString(" ") { it.replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString() } },
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.15.sp
@@ -398,6 +398,17 @@ fun DashboardScreen(
                     val calibKm = Math.max(0.0, (activeVehicle?.odometer ?: 0.0) - (activeVehicle?.initialKm ?: activeVehicle?.odometer ?: 0.0))
                     val kpdValue = activeVehicle?.calculatedKpd ?: 0.0
 
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                        text = "ESTADÍSTICAS DE CONTROL",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.2.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(24.dp),
@@ -425,15 +436,6 @@ fun DashboardScreen(
                                 .fillMaxWidth()
                                 .padding(16.dp)
                         ) {
-                            Text(
-                                text = "ESTADÍSTICAS DE CONTROL",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.2.sp
-                                ),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -502,7 +504,46 @@ fun DashboardScreen(
                         }
                     }
                 }
+            }
                 // 2. CURRENT ODOMETER CARD
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "ODÓMETRO ACTUAL",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.2.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    // Badge Real vs Estimado
+                    val isEstimated = (activeVehicle?.calculatedKpd ?: 0.0) > 0.0
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isEstimated) MaterialTheme.colorScheme.primaryContainer else Color(0xFFE8F5E9))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isEstimated) Icons.Default.AutoAwesome else Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = if (isEstimated) MaterialTheme.colorScheme.primary else Color(0xFF2E7D32),
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = if (isEstimated) "Estimado (IA)" else "Real",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = if (isEstimated) MaterialTheme.colorScheme.primary else Color(0xFF2E7D32)
+                        )
+                    }
+                }
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -532,44 +573,6 @@ fun DashboardScreen(
                         .fillMaxWidth()
                         .padding(20.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "ODÓMETRO ACTUAL",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.2.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        
-                        // Badge Real vs Estimado
-                        val isEstimated = (activeVehicle?.calculatedKpd ?: 0.0) > 0.0
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isEstimated) MaterialTheme.colorScheme.primaryContainer else Color(0xFFE8F5E9))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isEstimated) Icons.Default.AutoAwesome else Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = if (isEstimated) MaterialTheme.colorScheme.primary else Color(0xFF2E7D32),
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Text(
-                                text = if (isEstimated) "Estimado (IA)" else "Real",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = if (isEstimated) MaterialTheme.colorScheme.primary else Color(0xFF2E7D32)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -629,9 +632,20 @@ fun DashboardScreen(
                     FaintMapIllustration()
                 }
             }
+            }
 
             // 3. PREDICTIVE HEALTH CARD
             if (!hasServiceLogs) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                    text = "SALUD PREDICTIVA",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp)
+                )
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -667,15 +681,6 @@ fun DashboardScreen(
                             verticalAlignment = Alignment.Top
                         ) {
                             Column {
-                                Text(
-                                    text = "SALUD PREDICTIVA",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 1.2.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "Salud General: 100% • Al día",
                                     style = MaterialTheme.typography.bodySmall,
@@ -699,7 +704,18 @@ fun DashboardScreen(
                         )
                     }
                 }
+            }
             } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "SALUD PREDICTIVA",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp)
+                )
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -735,15 +751,6 @@ fun DashboardScreen(
                             verticalAlignment = Alignment.Top
                         ) {
                             Column {
-                                Text(
-                                    text = "SALUD PREDICTIVA",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 1.2.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "Salud General: ${Math.round(overallHealthPercent)}% • Ventana crítica",
                                     style = MaterialTheme.typography.bodySmall,
@@ -833,9 +840,20 @@ fun DashboardScreen(
                     }
                 }
             }
+            }
 
             // 4. UPCOMING TASKS CARD
             if (hasServiceLogs) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                    text = "PRÓXIMAS TAREAS",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp)
+                )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),
@@ -861,16 +879,10 @@ fun DashboardScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp)
+                            .padding(horizontal = 8.dp, vertical = 16.dp)
                     ) {
-                        Text(
-                            text = "Próximas Tareas",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        computedTasks.sortedByDescending { it.wearIndex }.forEachIndexed { index, task ->
+                        val sortedTasks = computedTasks.sortedByDescending { it.wearIndex }
+                        sortedTasks.forEachIndexed { index, task ->
                             if (index > 0) {
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
@@ -905,6 +917,7 @@ fun DashboardScreen(
                         }
                     }
                 }
+            }
             }
 
             // 5. CENTRO DE SOPORTE E INFORMACIÓN
