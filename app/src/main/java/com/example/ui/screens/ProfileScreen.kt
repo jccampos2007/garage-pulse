@@ -1006,9 +1006,9 @@ fun ProfileScreen(
                 ) {
                     Card(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainerLowest else Color.White
+                            containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color.White
                         ),
                         elevation = CardDefaults.cardElevation(
                             defaultElevation = if (isDarkTheme) 0.dp else 2.dp
@@ -1017,8 +1017,8 @@ fun ProfileScreen(
                             brush = if (isDarkTheme) {
                                 Brush.linearGradient(
                                     colors = listOf(
-                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.05f)
+                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.12f)
                                     )
                                 )
                             } else {
@@ -1050,9 +1050,9 @@ fun ProfileScreen(
 
                     Card(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainerLowest else Color.White
+                            containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color.White
                         ),
                         elevation = CardDefaults.cardElevation(
                             defaultElevation = if (isDarkTheme) 0.dp else 2.dp
@@ -1061,8 +1061,8 @@ fun ProfileScreen(
                             brush = if (isDarkTheme) {
                                 Brush.linearGradient(
                                     colors = listOf(
-                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.05f)
+                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.12f)
                                     )
                                 )
                             } else {
@@ -1101,17 +1101,19 @@ fun ProfileScreen(
             ) {
                 Text(
                     text = "FLOTA",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(start = 4.dp),
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp)
                 )
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainerLowest else Color.White
+                        containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color.White
                     ),
                     elevation = CardDefaults.cardElevation(
                         defaultElevation = if (isDarkTheme) 0.dp else 2.dp
@@ -1120,8 +1122,8 @@ fun ProfileScreen(
                         brush = if (isDarkTheme) {
                             Brush.linearGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.05f)
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.12f)
                                 )
                             )
                         } else {
@@ -1209,17 +1211,19 @@ fun ProfileScreen(
             ) {
                 Text(
                     text = "AJUSTES",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(start = 4.dp),
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp)
                 )
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainerLowest else Color.White
+                        containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color.White
                     ),
                     elevation = CardDefaults.cardElevation(
                         defaultElevation = if (isDarkTheme) 0.dp else 2.dp
@@ -1228,8 +1232,8 @@ fun ProfileScreen(
                         brush = if (isDarkTheme) {
                             Brush.linearGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.05f)
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.12f)
                                 )
                             )
                         } else {
@@ -1368,17 +1372,19 @@ fun ProfileScreen(
             ) {
                 Text(
                     text = "PREFERENCIAS",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(start = 4.dp),
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp)
                 )
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainerLowest else Color.White
+                        containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color.White
                     ),
                     elevation = CardDefaults.cardElevation(
                         defaultElevation = if (isDarkTheme) 0.dp else 2.dp
@@ -1387,8 +1393,8 @@ fun ProfileScreen(
                         brush = if (isDarkTheme) {
                             Brush.linearGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.05f)
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.12f)
                                 )
                             )
                         } else {

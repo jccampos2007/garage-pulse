@@ -239,22 +239,22 @@ fun HistoryScreen(
                     groupedLogs.forEach { (monthHeader, logsList) ->
                         // Month Category Header
                         item {
-                            Text(
-                                text = monthHeader,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(start = 2.dp, top = 8.dp, bottom = 4.dp)
-                            )
-                        }
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = monthHeader,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.2.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 4.dp)
+                                )
 
-                        // Collection card containing all logs for this month
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(20.dp),
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(24.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = if (isDark) MaterialTheme.colorScheme.surfaceContainerLowest else Color.White
+                                    containerColor = if (isDark) MaterialTheme.colorScheme.surfaceContainer else Color.White
                                 ),
                                 elevation = CardDefaults.cardElevation(
                                     defaultElevation = if (isDark) 0.dp else 2.dp
@@ -263,8 +263,8 @@ fun HistoryScreen(
                                     brush = if (isDark) {
                                         Brush.linearGradient(
                                             colors = listOf(
-                                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.05f)
+                                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.12f)
                                             )
                                         )
                                     } else {
@@ -378,6 +378,7 @@ fun HistoryScreen(
                                             )
                                         }
                                     }
+                                }
                                 }
                             }
                         }
