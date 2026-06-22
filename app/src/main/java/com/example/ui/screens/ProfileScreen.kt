@@ -1635,12 +1635,12 @@ fun ProfileScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(48.dp)
                     .testTag("logout_button"),
-                shape = RoundedCornerShape(26.dp),
+                shape = RoundedCornerShape(24.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.error
+                    containerColor = Color(0xFFE53935),
+                    contentColor = Color.White
                 )
             ) {
                 Row(
@@ -1652,6 +1652,7 @@ fun ProfileScreen(
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         "Cerrar sesión",
                         style = MaterialTheme.typography.titleLarge.copy(

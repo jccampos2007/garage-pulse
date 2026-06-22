@@ -18,9 +18,11 @@ Contiene los ajustes globales de las preferencias de visualización y datos gene
   "name": "Carlos Rodríguez",
   "email": "carlos.rod@garagepulse.app",
   "avatarUrl": "https://api.garagepulse.app/avatars/user_1.png",
-  "useKm": true
+  "useKm": true,
+  "isPremium": false
 }
 ```
+> **Nota:** El campo `isPremium` controla el acceso a funciones avanzadas como el rastreo de telemetría en segundo plano.
 
 ### 1.2. Vehículo (`Vehicle`)
 Representa cada auto o motocicleta controlado en la flota del garage.
@@ -36,9 +38,17 @@ Representa cada auto o motocicleta controlado en la flota del garage.
   "odometer": 42500.0,
   "isActive": true,
   "type": "Car",
-  "photoUri": "https://lh3.googleusercontent.com/..."
+  "photoUri": "https://lh3.googleusercontent.com/...",
+  "initialKm": 42000.0,
+  "initialDate": 1696104800000,
+  "lastUpdatedDate": 1697104800000,
+  "calculatedKpd": 15.5,
+  "lastKnownLocation": "10.4806,-66.9036",
+  "customIllustrationUrl": null,
+  "usageType": "PARTICULAR"
 }
 ```
+> **Nota:** Los campos `initialKm`, `initialDate` y `calculatedKpd` son requeridos para la Salud Predictiva. El campo `usageType` define los perfiles de desgaste y los límites de prueba gratuita para la telemetría en caso de no ser Premium.
 
 ### 1.3. Registro de Servicio / Mantenimiento (`ServiceLog`)
 Historial de cambio de consumibles, aceites, frenos o revisiones aplicadas a un vehículo específico.
@@ -194,7 +204,8 @@ CREATE TABLE user_profiles (
     name VARCHAR(100) NOT NULL,
     email VARCHAR(150) UNIQUE NOT NULL,
     avatar_url TEXT,
-    use_km BOOLEAN DEFAULT TRUE
+    use_km BOOLEAN DEFAULT TRUE,
+    is_premium BOOLEAN DEFAULT FALSE
 );
 
 -- Tabla de Vehículos 
@@ -210,7 +221,14 @@ CREATE TABLE vehicles (
     odometer DOUBLE PRECISION DEFAULT 0.0,
     is_active BOOLEAN DEFAULT FALSE,
     type VARCHAR(30) DEFAULT 'Car',
-    photo_uri TEXT
+    photo_uri TEXT,
+    initial_km DOUBLE PRECISION,
+    initial_date BIGINT,
+    last_updated_date BIGINT,
+    calculated_kpd DOUBLE PRECISION DEFAULT 0.0,
+    last_known_location TEXT,
+    custom_illustration_url TEXT,
+    usage_type VARCHAR(50) DEFAULT 'PARTICULAR'
 );
 
 -- Tabla de Bitácora de Servicios
@@ -223,9 +241,7 @@ CREATE TABLE service_logs (
     cost NUMERIC(10, 2) NOT NULL,
     mileage DOUBLE PRECISION NOT NULL,
     date BIGINT NOT NULL, -- Unix timestamp
-    type VARCHAR(30) NOT NULL, -- 'PREVENTIVO' / 'REPARACIONES' / 'PREDICTIVO'
-    audio_path TEXT, -- Ruta opcional a notas de voz sincronizadas
-    image_path TEXT  -- Imagen adjunta del recibo/comprobante
+    type VARCHAR(30) NOT NULL -- 'PREVENTIVO' / 'REPARACIONES'
 );
 
 -- Índices recomendados para Optimización de Consultas API
@@ -244,7 +260,7 @@ const db = require('./database'); // pool de postgres
 
 // Guardar nuevo servicio y auto-propagar kilometraje
 router.post('/api/services', async (req, res) => {
-    const { vehicleId, category, title, description, cost, mileage, date, type, audioPath, imagePath } = req.body;
+    const { vehicleId, category, title, description, cost, mileage, date, type } = req.body;
     
     try {
         // 1. Iniciar transacción
@@ -252,10 +268,10 @@ router.post('/api/services', async (req, res) => {
         
         // 2. Insertar historial de servicio
         const insertQuery = `
-            INSERT INTO service_logs (vehicle_id, category, title, description, cost, mileage, date, type, audio_path, image_path)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *;
+            INSERT INTO service_logs (vehicle_id, category, title, description, cost, mileage, date, type)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
         `;
-        const result = await db.query(insertQuery, [vehicleId, category, title, description, cost, mileage, date, type, audioPath, imagePath]);
+        const result = await db.query(insertQuery, [vehicleId, category, title, description, cost, mileage, date, type]);
         const newService = result.rows[0];
 
         // 3. Consultar odómetro actual del vehículo
