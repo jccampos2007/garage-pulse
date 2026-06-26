@@ -59,10 +59,16 @@ fun ProfileScreen(
     val allVehicles by viewModel.allVehicles.collectAsState()
     val allLogs by viewModel.allServiceLogs.collectAsState()
     val isDarkTheme by viewModel.isDarkTheme.collectAsState()
+    val categoryConfig by viewModel.categoryConfig.collectAsState()
 
     // Dialog state controllers
     var showVehiclesDialog by remember { mutableStateOf(false) }
     var showAddVehicleDialog by remember { mutableStateOf(false) }
+    var showMaintenanceConfigDialog by remember { mutableStateOf(false) }
+    var editingCategory by remember { mutableStateOf<String?>(null) }
+    var tempSubtitle by remember { mutableStateOf("") }
+    var tempKm by remember { mutableStateOf("") }
+    var tempDays by remember { mutableStateOf("") }
     var notificationStatus by remember { mutableStateOf("Activadas") }
 
     // Dialog form state matching splash/onboarding
@@ -870,6 +876,107 @@ fun ProfileScreen(
         )
     }
 
+    // Maintenance Config Dialog
+    if (showMaintenanceConfigDialog) {
+        AlertDialog(
+            onDismissRequest = { showMaintenanceConfigDialog = false },
+            title = {
+                Text(
+                    text = "Ajustes de Mantenimiento",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 460.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Personaliza los detalles e intervalos para cada tipo de servicio.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    categoryConfig.forEach { (catName, config) ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                editingCategory = catName
+                                tempSubtitle = config.first
+                                tempKm = config.second.toInt().toString()
+                                tempDays = config.third.toString()
+                            },
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(catName, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Detalle: ${config.first}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                                Text("Intervalo: ${config.second.toInt()} km / ${config.third} días", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showMaintenanceConfigDialog = false }) {
+                    Text("Cerrar")
+                }
+            }
+        )
+    }
+
+    if (editingCategory != null) {
+        AlertDialog(
+            onDismissRequest = { editingCategory = null },
+            title = { Text("Editar $editingCategory") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = tempSubtitle,
+                        onValueChange = { tempSubtitle = it },
+                        label = { Text("Detalle (Ej. SINTÉTICO 5W-30)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = tempKm,
+                        onValueChange = { tempKm = it },
+                        label = { Text("Intervalo (Kilómetros)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = tempDays,
+                        onValueChange = { tempDays = it },
+                        label = { Text("Intervalo (Días)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val kmVal = tempKm.toDoubleOrNull() ?: 10000.0
+                    val daysVal = tempDays.toIntOrNull() ?: 180
+                    viewModel.saveCategoryConfigItem(editingCategory!!, tempSubtitle, kmVal, daysVal)
+                    editingCategory = null
+                }) {
+                    Text("Guardar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingCategory = null }) { Text("Cancelar") }
+            }
+        )
+    }
+
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val isScrolled by remember { derivedStateOf { scrollBehavior.state.overlappedFraction > 0.01f } }
     val headerColor by animateColorAsState(
@@ -1325,6 +1432,43 @@ fun ProfileScreen(
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         )
 
+                        // Row: "Mantenimiento"
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showMaintenanceConfigDialog = true }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Build,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    "Mantenimiento",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.outlineVariant
+                            )
+                        }
+
+                        Divider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
                         // Row: "Idioma"
                         Row(
                             modifier = Modifier
@@ -1482,6 +1626,10 @@ fun ProfileScreen(
                         )
                     )
                     
+                    val bgLocationPermissionState = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        com.google.accompanist.permissions.rememberPermissionState(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                    } else null
+                    
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         thickness = 0.5.dp,
@@ -1528,7 +1676,11 @@ fun ProfileScreen(
                             onCheckedChange = { isChecked ->
                                 if (isChecked) {
                                     if (locationPermissionsState.allPermissionsGranted) {
-                                        viewModel.togglePremiumTelemetry(true)
+                                        if (bgLocationPermissionState != null && !bgLocationPermissionState.status.isGranted) {
+                                            bgLocationPermissionState.launchPermissionRequest()
+                                        } else {
+                                            viewModel.togglePremiumTelemetry(true)
+                                        }
                                     } else {
                                         locationPermissionsState.launchMultiplePermissionRequest()
                                     }
@@ -1539,11 +1691,75 @@ fun ProfileScreen(
                         )
                     }
 
-                    androidx.compose.runtime.LaunchedEffect(locationPermissionsState.allPermissionsGranted) {
+                    androidx.compose.runtime.LaunchedEffect(locationPermissionsState.allPermissionsGranted, bgLocationPermissionState?.status?.isGranted) {
                         // Si acaban de otorgar los permisos y todavía no es premium en DB (pero querían activarlo)
                         // Para simplificar, si dan permiso, asumimos que querían activar el premium telemetry.
                         if (locationPermissionsState.allPermissionsGranted && !userProfile.isPremium) {
-                            viewModel.togglePremiumTelemetry(true)
+                            if (bgLocationPermissionState == null || bgLocationPermissionState.status.isGranted) {
+                                viewModel.togglePremiumTelemetry(true)
+                            }
+                        }
+                    }
+
+                    // Log de Rastreo
+                    val activeVehicleForLog = allVehicles.find { it.isActive }
+                    if (activeVehicleForLog != null && locationPermissionsState.allPermissionsGranted) {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        val gpsPrefs = remember(activeVehicleForLog.id) { context.getSharedPreferences("GaragePulsePrefs", android.content.Context.MODE_PRIVATE) }
+                        var gpsDistanceKm by remember(activeVehicleForLog.id) {
+                            mutableStateOf(gpsPrefs.getFloat("gps_distance_vehicle_${activeVehicleForLog.id}", 0f).toDouble())
+                        }
+                        val todayStr = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()) }
+                        var gpsDistanceToday by remember(activeVehicleForLog.id) {
+                            mutableStateOf(gpsPrefs.getFloat("gps_distance_today_${activeVehicleForLog.id}_$todayStr", 0f).toDouble())
+                        }
+                        androidx.compose.runtime.LaunchedEffect(activeVehicleForLog.odometer, activeVehicleForLog.lastUpdatedDate) {
+                            gpsDistanceKm = gpsPrefs.getFloat("gps_distance_vehicle_${activeVehicleForLog.id}", 0f).toDouble()
+                            gpsDistanceToday = gpsPrefs.getFloat("gps_distance_today_${activeVehicleForLog.id}_$todayStr", 0f).toDouble()
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Text(
+                                "Log de Rastreo GPS",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.Black.copy(alpha = 0.8f))
+                                    .padding(12.dp)
+                            ) {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    val locStr = activeVehicleForLog.lastKnownLocation ?: "Sin ubicación registrada"
+                                    val dateStr = activeVehicleForLog.lastUpdatedDate?.let {
+                                        java.text.SimpleDateFormat("dd/MM/yy HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(it))
+                                    } ?: "N/A"
+                                    val useKm = userProfile?.useKm ?: true
+                                    val displayOdo = if (useKm) activeVehicleForLog.odometer else activeVehicleForLog.odometer * 0.621371
+                                    val odoUnit = if (useKm) "km" else "mi"
+                                    val displayGpsToday = if (useKm) gpsDistanceToday else gpsDistanceToday * 0.621371
+                                    val displayGpsTotal = if (useKm) gpsDistanceKm else gpsDistanceKm * 0.621371
+                                    val gpsUnit = if (useKm) "km" else "mi"
+
+                                    Text("Ubicación: $locStr", color = Color.Green, style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                                    Text(String.format(java.util.Locale.US, "Odómetro: %.2f %s", displayOdo, odoUnit), color = Color.Green, style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                                    Text(String.format(java.util.Locale.US, "Rastreo Hoy: %.2f %s", displayGpsToday, gpsUnit), color = Color.Green, style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                                    Text(String.format(java.util.Locale.US, "Rastreo Total: %.2f %s", displayGpsTotal, gpsUnit), color = Color.Green, style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                                    Text("Última act.: $dateStr", color = Color.Green, style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                                }
+                            }
                         }
                     }
 

@@ -17,6 +17,7 @@ import com.example.data.local.AppDatabase
 import com.google.android.gms.location.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlin.math.*
 
@@ -68,7 +69,7 @@ class TelemetryService : Service() {
         }
         
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000)
-            .setMinUpdateDistanceMeters(50f)
+            .setMinUpdateDistanceMeters(10f)
             .build()
 
         fusedLocationClient.requestLocationUpdates(
@@ -102,8 +103,10 @@ class TelemetryService : Service() {
                     
                     val distanceKm = calculateHaversineDistance(prevLat, prevLon, location.latitude, location.longitude)
                     
-                    // Update currentKm (odometer) every 200 meters (0.2 km)
-                    if (distanceKm >= 0.2) {
+                    val updateThresholdKm = 0.01
+                    
+                    // Update currentKm (odometer) every threshold (10m for everyone)
+                    if (distanceKm >= updateThresholdKm) {
                         val newOdometer = activeVehicle.odometer + distanceKm
                         val updatedVehicle = activeVehicle.copy(
                             odometer = newOdometer,
@@ -111,7 +114,26 @@ class TelemetryService : Service() {
                             lastUpdatedDate = System.currentTimeMillis()
                         )
                         dao.updateVehicle(updatedVehicle)
+
+                        // Accumulate GPS tracked distance in preferences (total and today)
+                        val gpsPrefs = getSharedPreferences("GaragePulsePrefs", Context.MODE_PRIVATE)
+                        val currentGpsDist = gpsPrefs.getFloat("gps_distance_vehicle_${activeVehicle.id}", 0f)
+                        val newGpsDist = currentGpsDist + distanceKm.toFloat()
+                        
+                        val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                        val todayKey = "gps_distance_today_${activeVehicle.id}_$todayStr"
+                        val currentTodayDist = gpsPrefs.getFloat(todayKey, 0f)
+                        val newTodayDist = currentTodayDist + distanceKm.toFloat()
+
+                        gpsPrefs.edit()
+                            .putFloat("gps_distance_vehicle_${activeVehicle.id}", newGpsDist)
+                            .putFloat(todayKey, newTodayDist)
+                            .apply()
+
                         Log.d("TelemetryService", "Updated odometer: +$distanceKm km")
+                        Log.d("TelemetryService", "Updated GPS tracked distance (total): $newGpsDist km, (today): $newTodayDist km")
+                        
+                        checkPredictiveAlerts(dao, activeVehicle, newOdometer)
                     }
                 }
             } else {
@@ -135,6 +157,73 @@ class TelemetryService : Service() {
         return R * c
     }
 
+    private suspend fun checkPredictiveAlerts(dao: com.example.data.local.DatabaseDao, activeVehicle: com.example.data.model.Vehicle, newOdometer: Double) {
+        val logs = dao.getServiceLogsForVehicle(activeVehicle.id).firstOrNull() ?: return
+        val garagePrefs = getSharedPreferences("garage_pulse_prefs", Context.MODE_PRIVATE)
+        val defaults = mapOf(
+            "Cambio de Aceite" to Pair(10000.0, 180),
+            "Filtros" to Pair(15000.0, 365),
+            "Frenos" to Pair(30000.0, 730),
+            "Neumáticos" to Pair(40000.0, 730),
+            "Batería" to Pair(60000.0, 1095)
+        )
+        val categoryConfig = mutableMapOf<String, Pair<Double, Int>>()
+        for ((key, defaultVal) in defaults) {
+            val km = garagePrefs.getFloat("config_km_$key", defaultVal.first.toFloat()).toDouble()
+            val days = garagePrefs.getInt("config_days_$key", defaultVal.second)
+            categoryConfig[key] = Pair(km, days)
+        }
+        val currentTime = System.currentTimeMillis()
+        val prefs = getSharedPreferences("GaragePulsePrefs", Context.MODE_PRIVATE)
+
+        for ((category, config) in categoryConfig) {
+            val intervalKm = config.first
+            val intervalDays = config.second
+            
+            val categoryLogs = logs.filter { it.category == category }
+            if (categoryLogs.isEmpty()) continue
+            val latestLog = categoryLogs.maxByOrNull { it.date } ?: continue
+            
+            val baseMileage = latestLog.mileage
+            val baseDate = latestLog.date
+            
+            val wearKm = ((newOdometer - baseMileage) / intervalKm).toFloat().coerceIn(0f, 1f)
+            val wearDays = ((currentTime - baseDate).toDouble() / (24.0*60*60*1000) / intervalDays).toFloat().coerceIn(0f, 1f)
+            val wearIndex = Math.max(wearKm, wearDays)
+            
+            if (wearIndex >= 0.90f) {
+                val alertLevel = if (wearIndex >= 1.0f) 100 else 90
+                val lastAlertKey = "alert_${activeVehicle.id}_${category}_${latestLog.id}"
+                val lastAlertLevelSent = prefs.getInt(lastAlertKey, 0)
+                
+                if (alertLevel > lastAlertLevelSent) {
+                    sendPushNotification(category, alertLevel)
+                    prefs.edit().putInt(lastAlertKey, alertLevel).apply()
+                }
+            }
+        }
+    }
+
+    private fun sendPushNotification(category: String, alertLevel: Int) {
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            return
+        }
+        val title = if (alertLevel == 100) "🚨 Acción requerida" else "⚠️ Precaución"
+        val text = if (alertLevel == 100) "Tu $category alcanzó el límite del 100%." else "Tu $category está al 90% de desgaste estimado."
+        
+        val notificationId = category.hashCode()
+        val notification = NotificationCompat.Builder(this, "alerts_channel")
+            .setContentTitle(title)
+            .setContentText(text)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+            
+        val manager = getSystemService(NotificationManager::class.java)
+        manager?.notify(notificationId, notification)
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         fusedLocationClient.removeLocationUpdates(locationCallback)
@@ -151,8 +240,14 @@ class TelemetryService : Service() {
                 "Telemetry Service Channel",
                 NotificationManager.IMPORTANCE_LOW
             )
+            val alertsChannel = NotificationChannel(
+                "alerts_channel",
+                "Alertas Predictivas",
+                NotificationManager.IMPORTANCE_HIGH
+            )
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(serviceChannel)
+            manager?.createNotificationChannel(alertsChannel)
         }
     }
 }

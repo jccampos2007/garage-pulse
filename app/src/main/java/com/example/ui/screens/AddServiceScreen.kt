@@ -13,8 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -63,6 +63,7 @@ fun AddServiceScreen(
 
     // Form inputs collected from ViewModel
     val category by viewModel.formCategory.collectAsState()
+    val formTitle by viewModel.formTitle.collectAsState()
     val dateLong by viewModel.formDate.collectAsState()
     val costStr by viewModel.formCost.collectAsState()
     val mileageStr by viewModel.formMileage.collectAsState()
@@ -680,7 +681,62 @@ fun AddServiceScreen(
                                 )
                             }
 
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Detalle del Servicio
+                            val suggestions = remember(category) {
+                                val cats = category.split(",").map { it.trim() }
+                                val mainCat = cats.firstOrNull() ?: ""
+                                when(mainCat) {
+                                    "Neumáticos" -> listOf("Rotación y Balanceo", "Cambio de Neumáticos", "Alineación", "Reparación/Parche")
+                                    "Frenos" -> listOf("Pastillas y Discos", "Cambio de Liga", "Ajuste/Revisión")
+                                    "Batería" -> listOf("Test de Corriente", "Cambio de Batería", "Limpieza de Bornes")
+                                    "Cambio de Aceite" -> listOf("Sintético 5W-30", "Mineral", "Semi-Sintético")
+                                    "Filtros" -> listOf("Filtros de Aire y AC", "Filtro de Gasolina", "Filtro de Aceite")
+                                    else -> emptyList()
+                                }
+                            }
+
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = "DETALLE DEL SERVICIO",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isDark) Color.White.copy(alpha = 0.62f) else MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.padding(bottom = 6.dp),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                OutlinedTextField(
+                                    value = formTitle,
+                                    onValueChange = { viewModel.setFormTitle(it) },
+                                    placeholder = { Text("Ej: Cambio de 2 neumáticos") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                    )
+                                )
+                                
+                                if (suggestions.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        suggestions.forEach { suggestion ->
+                                            SuggestionChip(
+                                                onClick = { viewModel.setFormTitle(suggestion) },
+                                                label = { Text(suggestion) },
+                                                colors = SuggestionChipDefaults.suggestionChipColors(
+                                                    containerColor = if (formTitle == suggestion) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             HorizontalDivider(
                                 thickness = 0.5.dp,

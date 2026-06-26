@@ -15,6 +15,14 @@ enum class GarageTab {
     DASHBOARD, HISTORY, ADD, PROFILE
 }
 
+data class MaintenanceConfig(
+    val category: String,
+    val subtitle: String,
+    val intervalKm: Double,
+    val intervalDays: Int
+)
+
+
 class GarageViewModel(private val repository: GarageRepository, private val context: android.content.Context) : ViewModel() {
 
     private val prefs = context.getSharedPreferences("garage_pulse_prefs", android.content.Context.MODE_PRIVATE)
@@ -32,6 +40,11 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     // --- Tab state ---
     private val _currentTab = MutableStateFlow(GarageTab.DASHBOARD)
     val currentTab: StateFlow<GarageTab> = _currentTab.asStateFlow()
+
+    // --- Maintenance Config State ---
+    private val _categoryConfig = MutableStateFlow<Map<String, Triple<String, Double, Int>>>(emptyMap())
+    val categoryConfig: StateFlow<Map<String, Triple<String, Double, Int>>> = _categoryConfig.asStateFlow()
+
 
     fun dismissSplash() {
         _showSplash.value = false
@@ -160,6 +173,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
 
     // --- Add Service Form State ---
     val formCategory = MutableStateFlow("Cambio de Aceite")
+    val formTitle = MutableStateFlow("")
     val formDate = MutableStateFlow(System.currentTimeMillis())
     val formCost = MutableStateFlow("")
     val formMileage = MutableStateFlow("")
@@ -178,11 +192,46 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
         viewModelScope.launch {
             repository.prepopulateIfEmpty()
         }
+        loadCategoryConfig()
+    }
+
+    // --- CONFIG ACTIONS ---
+    private fun loadCategoryConfig() {
+        val defaults = mapOf(
+            "Cambio de Aceite" to Triple("SINTÉTICO 5W-30", 10000.0, 180),
+            "Filtros" to Triple("FILTROS DE AIRE Y AC", 15000.0, 365),
+            "Frenos" to Triple("PASTILLAS Y DISCOS", 30000.0, 730),
+            "Neumáticos" to Triple("ROTACIÓN Y BALANCEO", 40000.0, 730),
+            "Batería" to Triple("TEST DE CORRIENTE", 60000.0, 1095)
+        )
+        val currentConfig = mutableMapOf<String, Triple<String, Double, Int>>()
+        for ((key, defaultVal) in defaults) {
+            val subtitle = prefs.getString("config_sub_$key", defaultVal.first) ?: defaultVal.first
+            val km = prefs.getFloat("config_km_$key", defaultVal.second.toFloat()).toDouble()
+            val days = prefs.getInt("config_days_$key", defaultVal.third)
+            currentConfig[key] = Triple(subtitle, km, days)
+        }
+        _categoryConfig.value = currentConfig
+    }
+
+    fun saveCategoryConfigItem(category: String, subtitle: String, intervalKm: Double, intervalDays: Int) {
+        prefs.edit()
+            .putString("config_sub_$category", subtitle)
+            .putFloat("config_km_$category", intervalKm.toFloat())
+            .putInt("config_days_$category", intervalDays)
+            .apply()
+        loadCategoryConfig() // Reload to update StateFlow
     }
 
     // --- FORM ACTIONS ---
     fun setFormCategory(category: String) {
         formCategory.value = category
+        val defaultConfig = _categoryConfig.value[category]
+        formTitle.value = defaultConfig?.first ?: category
+    }
+
+    fun setFormTitle(title: String) {
+        formTitle.value = title
     }
 
     fun setFormDate(date: Long) {
@@ -203,6 +252,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
 
     fun resetForm(currentActiveVehicle: Vehicle?) {
         formCategory.value = "Cambio de Aceite"
+        formTitle.value = _categoryConfig.value["Cambio de Aceite"]?.first ?: "SINTÉTICO 5W-30"
         formDate.value = System.currentTimeMillis()
         formCost.value = ""
         // Pre-populate form mileage converting to MI if needed
@@ -231,7 +281,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
         val log = ServiceLog(
             vehicleId = vehicle.id,
             category = formCategory.value,
-            title = formCategory.value,
+            title = formTitle.value.ifBlank { formCategory.value },
             description = formNotes.value.ifBlank { "Mantenimiento general" },
             cost = costVal,
             mileage = finalMileageKm,

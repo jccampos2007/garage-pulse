@@ -26,6 +26,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.clickable
+import androidx.compose.runtime.LaunchedEffect
+import android.Manifest
+import android.os.Build
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -96,9 +101,34 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun MainAppContainer(viewModel: GarageViewModel) {
     val currentTab by viewModel.currentTab.collectAsState()
+    val profile by viewModel.userProfile.collectAsState()
+
+    val permissionsToRequest = mutableListOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    )
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    val multiplePermissionsState = rememberMultiplePermissionsState(permissionsToRequest)
+
+    LaunchedEffect(Unit) {
+        if (!multiplePermissionsState.allPermissionsGranted) {
+            multiplePermissionsState.launchMultiplePermissionRequest()
+        }
+    }
+
+    LaunchedEffect(multiplePermissionsState.allPermissionsGranted, profile.isPremium) {
+        if (multiplePermissionsState.allPermissionsGranted && profile.isPremium) {
+            // Ensure service is running if permissions are granted and feature is enabled
+            viewModel.togglePremiumTelemetry(true)
+        }
+    }
 
     Scaffold(
         bottomBar = {
