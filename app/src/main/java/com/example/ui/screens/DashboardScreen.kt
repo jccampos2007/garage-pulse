@@ -50,7 +50,6 @@ import coil.compose.SubcomposeAsyncImageContent
 import coil.compose.AsyncImagePainter
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.isGranted
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -70,17 +69,6 @@ fun DashboardScreen(
         )
     )
 
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-        val notificationPermissionState = rememberPermissionState(
-            android.Manifest.permission.POST_NOTIFICATIONS
-        )
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            if (!notificationPermissionState.status.isGranted) {
-                notificationPermissionState.launchPermissionRequest()
-            }
-        }
-    }
-
     val activeVehicle by viewModel.activeVehicle.collectAsState()
     val allLogs by viewModel.allServiceLogs.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
@@ -99,83 +87,112 @@ fun DashboardScreen(
         return formatter.format(converted)
     }
 
-
+    val hasServiceLogs = allLogs.any { it.vehicleId == (activeVehicle?.id ?: -1) }
     val currentOdometer = activeVehicle?.odometer ?: 42500.0
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val gpsPrefs = remember(activeVehicle?.id) { context.getSharedPreferences("GaragePulsePrefs", android.content.Context.MODE_PRIVATE) }
-    var gpsDistanceKm by remember(activeVehicle?.id) {
-        mutableStateOf(gpsPrefs.getFloat("gps_distance_vehicle_${activeVehicle?.id ?: -1}", 0f).toDouble())
-    }
-    val todayStr = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()) }
-    var gpsDistanceToday by remember(activeVehicle?.id) {
-        mutableStateOf(gpsPrefs.getFloat("gps_distance_today_${activeVehicle?.id ?: -1}_$todayStr", 0f).toDouble())
-    }
-    androidx.compose.runtime.LaunchedEffect(activeVehicle?.odometer, activeVehicle?.lastUpdatedDate) {
-        gpsDistanceKm = gpsPrefs.getFloat("gps_distance_vehicle_${activeVehicle?.id ?: -1}", 0f).toDouble()
-        gpsDistanceToday = gpsPrefs.getFloat("gps_distance_today_${activeVehicle?.id ?: -1}_$todayStr", 0f).toDouble()
-    }
     val currentTimeMillis = System.currentTimeMillis()
 
-    val categoryConfig by viewModel.categoryConfig.collectAsState()
+    data class TaskRule(val displayName: String, val intervalKm: Double, val intervalDays: Int)
 
-
-    val computedTasks = categoryConfig.mapNotNull { (catName, config) ->
-        val subtitle = config.first
-        val intervalKm = config.second
-        val intervalDays = config.third
-
-        val logsForCat = allLogs.filter { it.vehicleId == (activeVehicle?.id ?: -1) && it.category == catName }
-        val latestLog = logsForCat.maxByOrNull { it.date }
-
-        if (latestLog == null) return@mapNotNull null
-
-        val baseMileage = latestLog.mileage
-        val baseDate = latestLog.date
-
-        val remainingKm = (baseMileage + intervalKm) - currentOdometer
-        val nextDateMillis = baseDate + (intervalDays * 24L * 60 * 60 * 1000)
-        val remainingDays = (nextDateMillis - currentTimeMillis).toDouble() / (24.0 * 60.0 * 60.0 * 1000.0)
-
-        val wearKm = ((currentOdometer - baseMileage) / intervalKm).toFloat().coerceIn(0f, 1f)
-        val elapsedDays = (currentTimeMillis - baseDate).toDouble() / (24.0 * 60.0 * 60.0 * 1000.0)
-        val wearDays = (elapsedDays / intervalDays).toFloat().coerceIn(0f, 1f)
-        val wearIndex = Math.max(wearKm, wearDays)
-
-        val icon = when (catName) {
-            "Cambio de Aceite" -> Icons.Default.OilBarrel
-            "Filtros" -> Icons.Default.Build
-            "Frenos" -> Icons.Default.Settings
-            "Neumáticos" -> Icons.Default.TireRepair
-            "Batería" -> Icons.Default.FlashOn
-            else -> Icons.Default.Build
-        }
-        val iconColor = Color.White
-
-        MaintenanceTaskResult(
-            category = catName,
-            subtitle = subtitle,
-            nextMilestoneKm = baseMileage + intervalKm,
-            remainingKm = remainingKm,
-            remainingDays = remainingDays,
-            wearIndex = wearIndex,
-            isTimeUrgent = wearDays >= wearKm,
-            icon = icon,
-            iconColor = iconColor
+    val predictiveConfig = mapOf(
+        "Cambio de Aceite" to mapOf(
+            "Aceite Sintético" to TaskRule("Aceite Sintético", 10000.0, 180),
+            "Aceite Mineral" to TaskRule("Aceite Mineral", 5000.0, 90),
+            "Filtro de Aceite" to TaskRule("Filtro de Aceite", 10000.0, 180),
+            "Filtro de Aire" to TaskRule("Filtro de Aire", 15000.0, 365),
+            "Filtro de Cabina" to TaskRule("Filtro de Cabina", 15000.0, 365),
+            "default" to TaskRule("Revisión", 10000.0, 180)
+        ),
+        "Frenos" to mapOf(
+            "Pastillas" to TaskRule("Pastillas", 25000.0, 730),
+            "Líquido de Frenos" to TaskRule("Líquido de Frenos", 40000.0, 730),
+            "Discos" to TaskRule("Discos", 50000.0, 1095),
+            "default" to TaskRule("Revisión", 30000.0, 730)
+        ),
+        "Neumáticos" to mapOf(
+            "Cambio de Llantas" to TaskRule("Cambio de Llantas", 40000.0, 730),
+            "Alineación" to TaskRule("Alineación", 10000.0, 180),
+            "Balanceo" to TaskRule("Balanceo", 10000.0, 180),
+            "Rotación" to TaskRule("Rotación", 10000.0, 180),
+            "default" to TaskRule("Revisión", 40000.0, 730)
+        ),
+        "Batería" to mapOf(
+            "Reemplazo" to TaskRule("Reemplazo", 60000.0, 1095),
+            "default" to TaskRule("Revisión", 60000.0, 1095)
         )
+    )
+
+    val computedTasks = predictiveConfig.mapNotNull { (catName, tasksMap) ->
+        val logsForCat = allLogs.filter { it.vehicleId == (activeVehicle?.id ?: -1) && it.category.split(", ").contains(catName) }
+        
+        val evaluations = tasksMap.map { (detailKey, rule) ->
+            val validLogs = if (detailKey == "default") {
+                logsForCat
+            } else {
+                logsForCat.filter { it.details.split(",").map { d -> d.trim() }.contains(detailKey) }
+            }
+            
+            val latestLog = validLogs.maxByOrNull { it.date }
+            
+            val baseMileage: Double
+            val baseDate: Long
+
+            if (latestLog != null) {
+                baseMileage = latestLog.mileage
+                baseDate = latestLog.date
+            } else {
+                val cycleIndex = Math.floor(currentOdometer / rule.intervalKm)
+                val lastMilestoneMileage = cycleIndex * rule.intervalKm
+                baseMileage = if (lastMilestoneMileage >= 0.0) lastMilestoneMileage else 0.0
+                
+                val kmsSinceMilestone = currentOdometer - baseMileage
+                val kpd = if ((activeVehicle?.calculatedKpd ?: 0.0) > 0.0) activeVehicle!!.calculatedKpd else 42.5
+                val estDays = kmsSinceMilestone / kpd
+                baseDate = currentTimeMillis - (estDays * 24.0 * 60.0 * 60.0 * 1000.0).toLong()
+            }
+
+            val remainingKm = (baseMileage + rule.intervalKm) - currentOdometer
+            val nextDateMillis = baseDate + (rule.intervalDays * 24L * 60 * 60 * 1000)
+            val remainingDays = (nextDateMillis - currentTimeMillis).toDouble() / (24.0 * 60.0 * 60.0 * 1000.0)
+
+            val wearKm = ((currentOdometer - baseMileage) / rule.intervalKm).toFloat().coerceIn(0f, 1f)
+            val elapsedDays = (currentTimeMillis - baseDate).toDouble() / (24.0 * 60.0 * 60.0 * 1000.0)
+            val wearDays = (elapsedDays / rule.intervalDays).toFloat().coerceIn(0f, 1f)
+            val wearIndex = Math.max(wearKm, wearDays)
+
+            val icon = when (catName) {
+                "Cambio de Aceite" -> Icons.Default.OilBarrel
+                "Filtros" -> Icons.Default.Build
+                "Frenos" -> Icons.Default.Settings
+                "Neumáticos" -> Icons.Default.TireRepair
+                "Batería" -> Icons.Default.FlashOn
+                else -> Icons.Default.Build
+            }
+            val iconColor = when (catName) {
+                "Cambio de Aceite" -> MaterialTheme.colorScheme.primary
+                "Filtros" -> MaterialTheme.colorScheme.secondary
+                "Frenos" -> MaterialTheme.colorScheme.tertiary
+                "Neumáticos" -> MaterialTheme.colorScheme.primary
+                "Batería" -> MaterialTheme.colorScheme.secondary
+                else -> MaterialTheme.colorScheme.outline
+            }
+
+            MaintenanceTaskResult(
+                category = catName,
+                subtitle = rule.displayName,
+                nextMilestoneKm = baseMileage + rule.intervalKm,
+                remainingKm = remainingKm,
+                remainingDays = remainingDays,
+                wearIndex = wearIndex,
+                isTimeUrgent = wearDays >= wearKm,
+                icon = icon,
+                iconColor = iconColor
+            )
+        }
+        
+        evaluations.maxByOrNull { it.wearIndex }
     }
 
-    val mostUrgentTask = computedTasks.maxByOrNull { it.wearIndex } ?: MaintenanceTaskResult(
-        category = "N/A",
-        subtitle = "",
-        nextMilestoneKm = 0.0,
-        remainingKm = 0.0,
-        remainingDays = 0.0,
-        wearIndex = 0f,
-        isTimeUrgent = false,
-        icon = Icons.Default.Build,
-        iconColor = Color.Gray
-    )
-    val hasServiceLogs = computedTasks.isNotEmpty()
+    val mostUrgentTask = computedTasks.maxByOrNull { it.wearIndex } ?: computedTasks.firstOrNull()
     val averageWear = if (computedTasks.isNotEmpty()) computedTasks.map { it.wearIndex }.average().toFloat() else 0f
     val overallHealthPercent = Math.max(0f, 100f * (1.0f - averageWear))
 
@@ -186,7 +203,7 @@ fun DashboardScreen(
         label = "headerColor"
     )
     val contentColor by animateColorAsState(
-        targetValue = if (isScrolled) MaterialTheme.colorScheme.primary else Color.White,
+        targetValue = if (isScrolled) MaterialTheme.colorScheme.primary else if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
         label = "contentColor"
     )
 
@@ -194,7 +211,7 @@ fun DashboardScreen(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             Column(modifier = Modifier.background(headerColor)) {
-                Spacer(modifier = Modifier.statusBarsPadding().height(16.dp))
+                Spacer(modifier = Modifier.statusBarsPadding())
                 TopAppBar(
                     title = {
                         Row(
@@ -202,48 +219,32 @@ fun DashboardScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.height(36.dp)
                         ) {
-                            if (userProfile.avatarUrl.isNotBlank()) {
-                                SubcomposeAsyncImage(
-                                    model = userProfile.avatarUrl,
-                                    contentDescription = "Foto de Perfil",
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                ) {
-                                    val state = painter.state
-                                    if (state is AsyncImagePainter.State.Error || state is AsyncImagePainter.State.Loading) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Person,
-                                                contentDescription = "Perfil",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    } else {
-                                        SubcomposeAsyncImageContent()
+                            SubcomposeAsyncImage(
+                                model = if (userProfile.avatarUrl.isNotBlank()) userProfile.avatarUrl else "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80",
+                                contentDescription = "Foto de Perfil",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                            ) {
+                                val state = painter.state
+                                if (state is AsyncImagePainter.State.Error || state is AsyncImagePainter.State.Loading) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = "Perfil",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
                                     }
-                                }
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Perfil",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                } else {
+                                    SubcomposeAsyncImageContent()
                                 }
                             }
                             Text(
@@ -423,16 +424,9 @@ fun DashboardScreen(
                 }
 
                 // Banner de Calibración
-                if ((activeVehicle?.calculatedKpd ?: 0.0) <= 0.0 || userProfile?.isPremium == true) {
+                if ((activeVehicle?.calculatedKpd ?: 0.0) <= 0.0) {
                     val calibKm = Math.max(0.0, (activeVehicle?.odometer ?: 0.0) - (activeVehicle?.initialKm ?: activeVehicle?.odometer ?: 0.0))
-                    val baselineKpd = when (activeVehicle?.usageType) {
-                        "TRANSPORTE_APPS" -> 150.0
-                        "CARGA" -> 200.0
-                        "FLOTA_COMERCIAL" -> 120.0
-                        else -> 40.0
-                    }
-                    val isCalibrated = (activeVehicle?.calculatedKpd ?: 0.0) > 0.0
-                    val kpdValue = if (isCalibrated) activeVehicle!!.calculatedKpd else baselineKpd
+                    val kpdValue = activeVehicle?.calculatedKpd ?: 0.0
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
@@ -485,7 +479,7 @@ fun DashboardScreen(
                                         color = if (isDark) Color.White else Color.Black
                                     )
                                     Text(
-                                        text = "${unitLabel.lowercase()} recorrido",
+                                        text = "${unitLabel.lowercase()} totales",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (isDark) Color.Gray else Color.DarkGray
                                     )
@@ -500,10 +494,9 @@ fun DashboardScreen(
 
                                 // 2. Promedio Diario
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    val displayKpdVal = if (isCalibrated) kpdValue else gpsDistanceToday
-                                    val convertedKpd = if (useKm) displayKpdVal else displayKpdVal * 0.621371
+                                    val convertedKpd = if (useKm) kpdValue else kpdValue * 0.621371
                                     Text(
-                                        text = String.format(Locale.US, "%.1f", convertedKpd),
+                                        text = String.format(Locale.US, "%.2f", convertedKpd),
                                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                                         color = if (isDark) Color.White else Color.Black
                                     )
@@ -527,12 +520,12 @@ fun DashboardScreen(
                                     modifier = Modifier.clickable { locationPermissionsState.launchMultiplePermissionRequest() }
                                 ) {
                                     Text(
-                                        text = displayDist(gpsDistanceToday),
+                                        text = "0.0",
                                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                                         color = if (isDark) Color.White else Color.Black
                                     )
                                     Text(
-                                        text = if (locationPermissionsState.allPermissionsGranted) "${unitLabel.lowercase()} hoy" else "GPS Inactivo",
+                                        text = if (locationPermissionsState.allPermissionsGranted) "${unitLabel.lowercase()} GPS" else "GPS Inactivo",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (locationPermissionsState.allPermissionsGranted) Color(0xFF4CAF50) else (if (isDark) Color.Gray else Color.DarkGray)
                                     )
@@ -612,44 +605,57 @@ fun DashboardScreen(
                 ) {
                     Row(
                         verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.Bottom,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.alignByBaseline()
-                        ) {
-                            Text(
-                                text = displayDist(activeVehicle?.odometer ?: 42500.0),
-                                style = MaterialTheme.typography.displayMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                ),
-                                fontSize = 44.sp,
-                                modifier = Modifier.alignByBaseline()
-                            )
-                            Text(
-                                text = unitLabel,
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary
-                                ),
-                                modifier = Modifier.alignByBaseline()
-                            )
-                        }
-
-                        val actualKpd = activeVehicle?.calculatedKpd ?: 0.0
-                        val isCalibrated = actualKpd > 0.0
-                        val kpdToDisplay = if (isCalibrated) actualKpd else gpsDistanceToday
-
                         Text(
-                            text = "${displayDist(kpdToDisplay)} $unitLabel/día",
-                            style = MaterialTheme.typography.bodyLarge.copy(
+                            text = displayDist(activeVehicle?.odometer ?: 42500.0),
+                            style = MaterialTheme.typography.displayMedium.copy(
                                 fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            fontSize = 44.sp,
+                            modifier = Modifier.alignByBaseline()
+                        )
+                        Text(
+                            text = unitLabel,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary
                             ),
                             modifier = Modifier.alignByBaseline()
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(18.dp))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        thickness = 1.dp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val actualKpd = activeVehicle?.calculatedKpd ?: 0.0
+                        val baselineKpd = when (activeVehicle?.usageType) {
+                            "TRANSPORTE_APPS" -> 150.0
+                            "CARGA" -> 200.0
+                            "FLOTA_COMERCIAL" -> 120.0
+                            else -> 40.0
+                        }
+                        val kpdToDisplay = if (actualKpd > 0.0) actualKpd else baselineKpd
+
+                        Text(
+                            text = "Promedio Diario",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${displayDist(kpdToDisplay)} $unitLabel",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                         )
                     }
                     Spacer(modifier = Modifier.height(18.dp))
@@ -774,44 +780,22 @@ fun DashboardScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.Top
                         ) {
-                            val healthStatusText = when {
-                                overallHealthPercent >= 85f -> "Estado Óptimo"
-                                overallHealthPercent >= 50f -> "Revisión Próxima"
-                                else -> "Ventana Crítica"
-                            }
-                            val healthIcon = when {
-                                overallHealthPercent >= 85f -> Icons.Default.CheckCircle
-                                overallHealthPercent >= 50f -> Icons.Default.Warning
-                                else -> Icons.Default.Warning
-                            }
-                            val healthIconTint = when {
-                                overallHealthPercent >= 85f -> Color(0xFF4CAF50)
-                                overallHealthPercent >= 50f -> Color(0xFFFFC107)
-                                else -> MaterialTheme.colorScheme.error
-                            }
-
                             Column {
                                 Text(
-                                    text = "Salud General: ${Math.round(overallHealthPercent)}% • $healthStatusText",
+                                    text = "Salud General: ${Math.round(overallHealthPercent)}% • Ventana crítica",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Icon(
-                                imageVector = healthIcon,
-                                contentDescription = healthStatusText,
-                                tint = healthIconTint,
-                                modifier = Modifier.size(28.dp)
-                            )
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = "Warning",
+                                    tint = if ((mostUrgentTask?.wearIndex ?: 0f) >= 0.85f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
+                                )
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
-
-                        val wearColor = when {
-                            mostUrgentTask.wearIndex < 0.70f -> Color(0xFF4CAF50)
-                            mostUrgentTask.wearIndex < 0.90f -> Color(0xFFFFC107)
-                            else -> Color(0xFFF44336) // Fuerte rojo para desgaste crítico
-                        }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -819,14 +803,14 @@ fun DashboardScreen(
                             verticalAlignment = Alignment.Bottom
                         ) {
                             Text(
-                                text = "PROXIMIDAD AL LÍMITE",
+                                text = "PROXIMIDAD AL LÍMITE (${mostUrgentTask?.category ?: "NA"})",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = "DESGASTE ${Math.round(mostUrgentTask.wearIndex * 100)}%",
+                                text = "LÍMITE ${Math.round((mostUrgentTask?.wearIndex ?: 0f) * 100)}%",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = wearColor
+                                color = if ((mostUrgentTask?.wearIndex ?: 0f) >= 0.85f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                             )
                         }
 
@@ -834,54 +818,57 @@ fun DashboardScreen(
 
                         // Progress-bar
                         LinearProgressIndicator(
-                            progress = { mostUrgentTask.wearIndex },
+                            progress = { mostUrgentTask?.wearIndex ?: 0f },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(8.dp)
                                 .clip(RoundedCornerShape(4.dp)),
-                            color = wearColor,
+                            color = if ((mostUrgentTask?.wearIndex ?: 0f) >= 0.85f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        val isOverdue = mostUrgentTask.remainingKm <= 0.0 || mostUrgentTask.remainingDays <= 0.0
-                        val kpd = if ((activeVehicle?.calculatedKpd ?: 0.0) > 0.0) activeVehicle!!.calculatedKpd else 42.5
-                        val daysToLimit = Math.min(
-                            Math.max(0.0, mostUrgentTask.remainingKm / kpd),
-                            Math.max(0.0, mostUrgentTask.remainingDays)
-                        )
-                        val estDateMillis = currentTimeMillis + (daysToLimit * 24L * 60 * 60 * 1000).toLong()
-                        val sdf = SimpleDateFormat("dd 'de' MMM, yyyy", Locale("es", "ES"))
-                        
-                        val statusText = if (isOverdue) {
-                            "Acción requerida: ${mostUrgentTask.category} está vencido (Registrar ahora)"
-                        } else {
-                            "${mostUrgentTask.category} para el ${sdf.format(Date(estDateMillis))}"
-                        }
+                        if (mostUrgentTask != null) {
+                            val isOverdue = mostUrgentTask.remainingKm <= 0.0 || mostUrgentTask.remainingDays <= 0.0
+                            val kpd = if ((activeVehicle?.calculatedKpd ?: 0.0) > 0.0) activeVehicle!!.calculatedKpd else 42.5
+                            val daysToLimit = Math.min(
+                                Math.max(0.0, mostUrgentTask.remainingKm / kpd),
+                                Math.max(0.0, mostUrgentTask.remainingDays)
+                            )
+                            val estDateMillis = currentTimeMillis + (daysToLimit * 24L * 60 * 60 * 1000).toLong()
+                            val sdf = SimpleDateFormat("dd 'de' MMM, yyyy", Locale("es", "ES"))
+                            
+                            val statusText = if (isOverdue) {
+                                "Atención: ${mostUrgentTask.subtitle} vencido (Registrar)"
+                            } else {
+                                "Próximo: ${mostUrgentTask.subtitle} para ${sdf.format(Date(estDateMillis))}"
+                            }
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable {
-                                    viewModel.navigateToRegisterService(mostUrgentTask.category)
-                                }
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isOverdue) Icons.Default.Warning else Icons.Default.Info,
-                                contentDescription = null,
-                                tint = if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = statusText,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                color = if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        viewModel.setFormDetails(mostUrgentTask.subtitle)
+                                        viewModel.navigateToRegisterService(mostUrgentTask.category)
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isOverdue) Icons.Default.Warning else Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = statusText,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                    color = if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -902,7 +889,7 @@ fun DashboardScreen(
                 )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (isDark) MaterialTheme.colorScheme.surfaceContainer else Color.White
                     ),
@@ -958,7 +945,10 @@ fun DashboardScreen(
                                 isError = task.wearIndex >= 0.85f || task.remainingKm <= 0.0 || task.remainingDays <= 0.0,
                                 icon = task.icon,
                                 iconColor = task.iconColor,
-                                onClick = { viewModel.navigateToRegisterService(task.category) }
+                                onClick = {
+                                    viewModel.setFormDetails(task.subtitle)
+                                    viewModel.navigateToRegisterService(task.category)
+                                }
                             )
                         }
                     }

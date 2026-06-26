@@ -252,7 +252,7 @@ fun HistoryScreen(
 
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(24.dp),
+                                    shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = if (isDark) MaterialTheme.colorScheme.surfaceContainer else Color.White
                                 ),
@@ -282,7 +282,8 @@ fun HistoryScreen(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             // Circular colored avatar with specific Category Icon
-                                            val containerColor = when (log.category) {
+                                            val firstCat = log.category.split(", ").first()
+                                            val containerColor = when (firstCat) {
                                                 "Cambio de Aceite" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
                                                 "Neumáticos" -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f)
                                                 "Frenos" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.15f)
@@ -290,7 +291,7 @@ fun HistoryScreen(
                                                 "Suspensión" -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f)
                                                 else -> MaterialTheme.colorScheme.surfaceVariant
                                             }
-                                            val iconColor = when (log.category) {
+                                            val iconColor = when (firstCat) {
                                                 "Cambio de Aceite" -> MaterialTheme.colorScheme.primary
                                                 "Neumáticos" -> MaterialTheme.colorScheme.secondary
                                                 "Frenos" -> MaterialTheme.colorScheme.tertiary
@@ -298,7 +299,7 @@ fun HistoryScreen(
                                                 "Suspensión" -> MaterialTheme.colorScheme.secondary
                                                 else -> MaterialTheme.colorScheme.outline
                                             }
-                                            val iconVector = when (log.category) {
+                                            val iconVector = when (firstCat) {
                                                 "Cambio de Aceite" -> Icons.Default.OilBarrel
                                                 "Neumáticos" -> Icons.Default.TireRepair
                                                 "Frenos" -> Icons.Default.Build
@@ -495,7 +496,8 @@ fun ServiceDetailDialog(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                val containerColor = when (log.category) {
+                val firstCat = log.category.split(", ").first()
+                val containerColor = when (firstCat) {
                     "Cambio de Aceite" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
                     "Neumáticos" -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f)
                     "Frenos" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.15f)
@@ -503,7 +505,7 @@ fun ServiceDetailDialog(
                     "Suspensión" -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f)
                     else -> MaterialTheme.colorScheme.surfaceVariant
                 }
-                val iconColor = when (log.category) {
+                val iconColor = when (firstCat) {
                     "Cambio de Aceite" -> MaterialTheme.colorScheme.primary
                     "Neumáticos" -> MaterialTheme.colorScheme.secondary
                     "Frenos" -> MaterialTheme.colorScheme.tertiary
@@ -511,7 +513,7 @@ fun ServiceDetailDialog(
                     "Suspensión" -> MaterialTheme.colorScheme.secondary
                     else -> MaterialTheme.colorScheme.outline
                 }
-                val iconVector = when (log.category) {
+                val iconVector = when (firstCat) {
                     "Cambio de Aceite" -> Icons.Default.OilBarrel
                     "Neumáticos" -> Icons.Default.TireRepair
                     "Frenos" -> Icons.Default.Build
@@ -597,6 +599,49 @@ fun ServiceDetailDialog(
                     }
                 }
 
+                // Details Block
+                if (log.details.isNotBlank()) {
+                    Text(
+                        text = "ACCIONES REALIZADAS",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            log.details.split(",").forEach { detail ->
+                                val cleanDetail = detail.trim()
+                                if (cleanDetail.isNotBlank()) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = cleanDetail,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Description Block
                 if (log.description.isNotBlank()) {
                     Text(
@@ -623,7 +668,7 @@ fun ServiceDetailDialog(
                 }
             }
         },
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(16.dp),
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = true)
     )
 }

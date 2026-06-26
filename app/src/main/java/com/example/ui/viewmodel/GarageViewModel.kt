@@ -178,6 +178,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     val formCost = MutableStateFlow("")
     val formMileage = MutableStateFlow("")
     val formNotes = MutableStateFlow("")
+    val formDetails = MutableStateFlow("")
 
     // --- Theme Toggle State ---
     private val _isDarkTheme = MutableStateFlow(true)
@@ -250,6 +251,10 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
         formNotes.value = notes
     }
 
+    fun setFormDetails(details: String) {
+        formDetails.value = details
+    }
+
     fun resetForm(currentActiveVehicle: Vehicle?) {
         formCategory.value = "Cambio de Aceite"
         formTitle.value = _categoryConfig.value["Cambio de Aceite"]?.first ?: "SINTÉTICO 5W-30"
@@ -263,6 +268,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
             converted.toInt().toString()
         } else ""
         formNotes.value = ""
+        formDetails.value = ""
     }
 
     fun saveServiceLog(onSuccess: () -> Unit) {
@@ -286,7 +292,8 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
             cost = costVal,
             mileage = finalMileageKm,
             date = formDate.value,
-            type = if (formCategory.value in listOf("Frenos", "Motor")) "REPARACIONES" else "PREVENTIVO"
+            type = if (formCategory.value in listOf("Frenos", "Motor")) "REPARACIONES" else "PREVENTIVO",
+            details = formDetails.value
         )
 
         viewModelScope.launch {

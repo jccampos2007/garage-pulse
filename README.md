@@ -15,7 +15,7 @@ La aplicación integra control de consumo, registro de odómetro, alertas de ven
   - Tipificación de Mantenimientos: Preventivos, Correctivos o Predictivos.
   - Grabadora de Notas de Voz: Graba directamente explicaciones o diagnósticos audibles del mecánico.
   - Adjunto Fotográfico: Captura el recibo o comprobante directo del taller.
-- **Salud Predictiva Inteligente:** Monitorea y diagnostica en tiempo real la salud general acumulativa de tu motor en base al uso diario proyectado, alertándote de forma crítica cuando entres en ventanas de riesgo.
+- **Salud Predictiva Inteligente (Granular):** Monitorea y diagnostica en tiempo real la salud acumulativa. Su motor interno desglosa los cálculos a nivel de sub-tareas específicas (ej. Alineación vs Cambio de Llantas), agrupando inteligentemente y "burbujeando" la advertencia del componente más crítico a la tarjeta principal, manteniendo la interfaz simple y amigable.
 - **Dynamic Maps Component:** Incorpora un mapa simulado de asistencia técnica diseñado con paletas de color y estilos oscuros idénticos a los del sistema de posicionamiento real para guiar al conductor.
 - **Gestión Avanzada del Perfil:** Modificadores de metas de perfil, ajustes métricos de Kilómetros o Millas globales de conversión instantánea, y herramientas de reinicio de sincronización cloud.
 

@@ -62,9 +62,11 @@ Historial de cambio de consumibles, aceites, frenos o revisiones aplicadas a un 
   "cost": 85.00,
   "mileage": 45200.0,
   "date": 1697104800000,
-  "type": "PREVENTIVO"
+  "type": "PREVENTIVO",
+  "details": "Filtro de aceite, Filtro de aire"
 }
 ```
+> El campo `details` se envía como un String separado por comas (CSV). Este campo es **crítico** para el motor de *Salud Predictiva Granular*, ya que permite que el cliente móvil desglose los mantenimientos a nivel de sub-tareas individuales (Ej: evaluar independientemente el desgaste de 'Alineación' frente a 'Cambio de Llantas' dentro de la categoría 'Neumáticos').
 > El campo `date` se transfiere como **Tiempo Unix en milisegundos (Long)** para garantizar compatibilidad horaria absoluta entre zonas de servidor y cliente.
 
 ---
@@ -241,7 +243,8 @@ CREATE TABLE service_logs (
     cost NUMERIC(10, 2) NOT NULL,
     mileage DOUBLE PRECISION NOT NULL,
     date BIGINT NOT NULL, -- Unix timestamp
-    type VARCHAR(30) NOT NULL -- 'PREVENTIVO' / 'REPARACIONES'
+    type VARCHAR(30) NOT NULL, -- 'PREVENTIVO' / 'REPARACIONES'
+    details TEXT -- CSV format: 'Alineación, Cambio de Llantas'. Crucial for granular predictive health
 );
 
 -- Índices recomendados para Optimización de Consultas API
@@ -260,7 +263,7 @@ const db = require('./database'); // pool de postgres
 
 // Guardar nuevo servicio y auto-propagar kilometraje
 router.post('/api/services', async (req, res) => {
-    const { vehicleId, category, title, description, cost, mileage, date, type } = req.body;
+    const { vehicleId, category, title, description, cost, mileage, date, type, details } = req.body;
     
     try {
         // 1. Iniciar transacción
@@ -268,10 +271,10 @@ router.post('/api/services', async (req, res) => {
         
         // 2. Insertar historial de servicio
         const insertQuery = `
-            INSERT INTO service_logs (vehicle_id, category, title, description, cost, mileage, date, type)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
+            INSERT INTO service_logs (vehicle_id, category, title, description, cost, mileage, date, type, details)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
         `;
-        const result = await db.query(insertQuery, [vehicleId, category, title, description, cost, mileage, date, type]);
+        const result = await db.query(insertQuery, [vehicleId, category, title, description, cost, mileage, date, type, details]);
         const newService = result.rows[0];
 
         // 3. Consultar odómetro actual del vehículo

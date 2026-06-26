@@ -42,7 +42,8 @@ data class ServiceLog(
     val cost: Double,
     val mileage: Double,
     val date: Long, // timestamp
-    val type: String // "PREVENTIVO" or "REPARACIONES"
+    val type: String, // "PREVENTIVO" or "REPARACIONES"
+    val details: String = "" // CSV or JSON for specific actions
 ) : Serializable
 
 @Entity(tableName = "user_profiles")

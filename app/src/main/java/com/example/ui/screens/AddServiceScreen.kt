@@ -68,6 +68,7 @@ fun AddServiceScreen(
     val costStr by viewModel.formCost.collectAsState()
     val mileageStr by viewModel.formMileage.collectAsState()
     val notesStr by viewModel.formNotes.collectAsState()
+    val formDetailsStr by viewModel.formDetails.collectAsState()
 
     // State managers
     var isCategoryDropdownExpanded by remember { mutableStateOf(false) }
@@ -743,7 +744,81 @@ fun AddServiceScreen(
                                 color = if (isDark) Color.White.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                             )
 
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Sub-details mapping
+                            val detailsMap = mapOf(
+                                "Cambio de Aceite" to listOf("Filtro de Aceite", "Filtro de Aire", "Filtro de Cabina", "Aceite Sintético", "Aceite Mineral"),
+                                "Frenos" to listOf("Pastillas", "Discos", "Líquido de Frenos", "Ajuste de Freno de Mano", "Rectificación"),
+                                "Neumáticos" to listOf("Rotación", "Alineación", "Balanceo", "Cambio de Llantas", "Revisión de Presión", "Parche"),
+                                "Batería" to listOf("Reemplazo", "Limpieza de Bornes", "Revisión de Alternador")
+                            )
+
+                            val availableDetails = selectedCats.flatMap { detailsMap[it] ?: emptyList() }.distinct()
+                            
+                            val selectedDetails = if (formDetailsStr.isBlank()) emptyList() else formDetailsStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+
+                            AnimatedVisibility(visible = availableDetails.isNotEmpty()) {
+                                Column {
+                                    Text(
+                                        text = "ACCIONES ESPECÍFICAS",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (isDark) Color.White.copy(alpha = 0.62f) else MaterialTheme.colorScheme.outline,
+                                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        availableDetails.chunked(2).forEach { rowItems ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                rowItems.forEach { detail ->
+                                                    val isSelected = selectedDetails.contains(detail)
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .clip(RoundedCornerShape(12.dp))
+                                                            .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else if (isDark) Color.White.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                                                            .clickable {
+                                                                val newDetails = if (isSelected) selectedDetails - detail else selectedDetails + detail
+                                                                viewModel.setFormDetails(newDetails.joinToString(","))
+                                                            }
+                                                            .padding(8.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Checkbox(
+                                                            checked = isSelected,
+                                                            onCheckedChange = null,
+                                                            modifier = Modifier.size(20.dp),
+                                                            colors = CheckboxDefaults.colors(
+                                                                checkedColor = MaterialTheme.colorScheme.primary
+                                                            )
+                                                        )
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Text(
+                                                            text = detail,
+                                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+                                                        )
+                                                    }
+                                                }
+                                                if (rowItems.size == 1) {
+                                                    Spacer(modifier = Modifier.weight(1f))
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    HorizontalDivider(
+                                        thickness = 0.5.dp,
+                                        color = if (isDark) Color.White.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                }
+                            }
 
                             // Snug Kilometraje and Date Row
                             Row(
@@ -948,7 +1023,7 @@ fun AddServiceScreen(
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("save_service_button"),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (savedSuccessfully) Color(0xFF34C759) else Color(0xFFE75C31),
                         contentColor = Color.White

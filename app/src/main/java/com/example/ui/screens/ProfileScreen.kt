@@ -1113,7 +1113,7 @@ fun ProfileScreen(
                 ) {
                     Card(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(24.dp),
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color.White
                         ),
@@ -1157,7 +1157,7 @@ fun ProfileScreen(
 
                     Card(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(24.dp),
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color.White
                         ),
@@ -1218,7 +1218,7 @@ fun ProfileScreen(
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color.White
                     ),
@@ -1328,7 +1328,7 @@ fun ProfileScreen(
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color.White
                     ),
@@ -1526,7 +1526,7 @@ fun ProfileScreen(
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color.White
                     ),
@@ -1853,7 +1853,7 @@ fun ProfileScreen(
                     .fillMaxWidth()
                     .height(48.dp)
                     .testTag("logout_button"),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFFE53935),
                     contentColor = Color.White
