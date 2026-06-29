@@ -3,6 +3,7 @@ package com.example.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.data.api.TokenManager
 import com.example.data.model.ServiceLog
 import com.example.data.model.Vehicle
 import com.example.data.model.UserProfile
@@ -37,6 +38,17 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     private val _showSplash = MutableStateFlow(true)
     val showSplash: StateFlow<Boolean> = _showSplash.asStateFlow()
 
+    // --- Auth loading/error states for UI feedback ---
+    private val _authLoading = MutableStateFlow(false)
+    val authLoading: StateFlow<Boolean> = _authLoading.asStateFlow()
+
+    private val _authError = MutableStateFlow<String?>(null)
+    val authError: StateFlow<String?> = _authError.asStateFlow()
+
+    fun clearAuthError() {
+        _authError.value = null
+    }
+
     // --- Tab state ---
     private val _currentTab = MutableStateFlow(GarageTab.DASHBOARD)
     val currentTab: StateFlow<GarageTab> = _currentTab.asStateFlow()
@@ -52,46 +64,91 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     }
 
     fun registerUser(name: String, email: String, password: String, vehicleBrand: String, vehicleModel: String, initialOdometer: Double, licensePlate: String, vehicleType: String = "Car") {
-        prefs.edit()
-            .putString("registered_name", name)
-            .putString("registered_email", email)
-            .putString("registered_password", password)
-            .putBoolean("is_registered", true)
-            .putBoolean("is_logged_in", true)
-            .apply()
-
-        _isRegistered.value = true
-        _isLoggedIn.value = true
-        _currentTab.value = GarageTab.DASHBOARD
+        _authLoading.value = true
+        _authError.value = null
 
         viewModelScope.launch {
-            // Update profile with registered name and email
-            val currentProfile = repository.userProfile.firstOrNull() ?: UserProfile()
-            repository.saveUserProfile(
-                currentProfile.copy(
-                    name = name,
-                    email = email
+            // 1. Try to register via the REST API
+            val apiResult = repository.registerUserApi(
+                name = name,
+                email = email,
+                password = password,
+                vehicleBrand = vehicleBrand,
+                vehicleModel = vehicleModel,
+                initialOdometer = initialOdometer,
+                licensePlate = licensePlate
+            )
+
+            if (apiResult != null) {
+                // API registration succeeded — save local state
+                prefs.edit()
+                    .putString("registered_name", name)
+                    .putString("registered_email", email)
+                    .putBoolean("is_registered", true)
+                    .putBoolean("is_logged_in", true)
+                    .apply()
+
+                _isRegistered.value = true
+                _isLoggedIn.value = true
+                _currentTab.value = GarageTab.DASHBOARD
+
+                // Save user profile locally
+                val userEntity = apiResult.user.toEntity()
+                repository.saveUserProfile(userEntity)
+
+                // Clear existing local data and insert the vehicle from API
+                repository.clearAllVehicles()
+                repository.clearAllServiceLogs()
+
+                val vehicleEntity = apiResult.vehicle.toEntity()
+                repository.insertVehicle(vehicleEntity)
+
+            } else {
+                // API registration failed — fall back to offline-only mode
+                _authError.value = "No se pudo conectar al servidor. Registrando localmente..."
+
+                prefs.edit()
+                    .putString("registered_name", name)
+                    .putString("registered_email", email)
+                    .putString("registered_password", password)
+                    .putBoolean("is_registered", true)
+                    .putBoolean("is_logged_in", true)
+                    .apply()
+
+                _isRegistered.value = true
+                _isLoggedIn.value = true
+                _currentTab.value = GarageTab.DASHBOARD
+
+                // Update profile with registered name and email
+                val currentProfile = repository.userProfile.firstOrNull() ?: UserProfile()
+                repository.saveUserProfile(
+                    currentProfile.copy(
+                        name = name,
+                        email = email
+                    )
                 )
-            )
 
-            // Clear any other vehicles and service logs so the registered vehicle is the only one, and history is clean
-            repository.clearAllVehicles()
-            repository.clearAllServiceLogs()
+                // Clear any other vehicles and service logs so the registered vehicle is the only one, and history is clean
+                repository.clearAllVehicles()
+                repository.clearAllServiceLogs()
 
-            // Insert custom vehicle registered in onboarding/splash
-            val customVehicle = com.example.data.model.Vehicle(
-                name = "$vehicleBrand $vehicleModel".trim(),
-                brand = vehicleBrand,
-                model = vehicleModel,
-                year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR),
-                licensePlate = if (licensePlate.isNotBlank()) licensePlate.uppercase().trim() else "NU-EVO",
-                status = "Optimal",
-                odometer = initialOdometer,
-                isActive = true,
-                type = vehicleType
-            )
+                // Insert custom vehicle registered in onboarding/splash
+                val customVehicle = com.example.data.model.Vehicle(
+                    name = "$vehicleBrand $vehicleModel".trim(),
+                    brand = vehicleBrand,
+                    model = vehicleModel,
+                    year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR),
+                    licensePlate = if (licensePlate.isNotBlank()) licensePlate.uppercase().trim() else "NU-EVO",
+                    status = "Optimal",
+                    odometer = initialOdometer,
+                    isActive = true,
+                    type = vehicleType
+                )
 
-            repository.insertVehicle(customVehicle)
+                repository.insertVehicle(customVehicle)
+            }
+
+            _authLoading.value = false
         }
     }
 
@@ -104,35 +161,63 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     }
 
     fun loginUser(email: String, password: String): Boolean {
-        val regEmail = prefs.getString("registered_email", "") ?: ""
-        val regPassword = prefs.getString("registered_password", "") ?: ""
-        val matchesReal = regEmail.trim().equals(email.trim(), ignoreCase = true) && regPassword == password
-        val matchesMock = email.trim().equals("prueba@garagepulse.com", ignoreCase = true) && password == "1234"
-        
-        if (matchesReal || matchesMock) {
-            if (matchesMock && regEmail.trim().isEmpty()) {
-                registerUser(
-                    name = "Usuario Prueba",
-                    email = "prueba@garagepulse.com",
-                    password = "1234",
-                    vehicleBrand = "Toyota",
-                    vehicleModel = "Hilux",
-                    initialOdometer = 24500.0,
-                    licensePlate = "M0CK-123",
-                    vehicleType = "Car"
-                )
+        _authLoading.value = true
+        _authError.value = null
+
+        viewModelScope.launch {
+            // 1. Try to login via the REST API
+            val apiResult = repository.loginUserApi(email, password)
+
+            if (apiResult != null) {
+                // API login succeeded
+                prefs.edit().putBoolean("is_logged_in", true).apply()
+                _isLoggedIn.value = true
+                _currentTab.value = GarageTab.DASHBOARD
+
+                // Sync vehicles and services from server
+                repository.syncLocalWithRemote()
+
+                _authLoading.value = false
+                return@launch
             }
-            prefs.edit().putBoolean("is_logged_in", true).apply()
-            _isLoggedIn.value = true
-            _currentTab.value = GarageTab.DASHBOARD
-            return true
+
+            // 2. API failed — fall back to local credentials check
+            val regEmail = prefs.getString("registered_email", "") ?: ""
+            val regPassword = prefs.getString("registered_password", "") ?: ""
+            val matchesReal = regEmail.trim().equals(email.trim(), ignoreCase = true) && regPassword == password
+            val matchesMock = email.trim().equals("prueba@garagepulse.com", ignoreCase = true) && password == "1234"
+
+            if (matchesReal || matchesMock) {
+                if (matchesMock && regEmail.trim().isEmpty()) {
+                    registerUser(
+                        name = "Usuario Prueba",
+                        email = "prueba@garagepulse.com",
+                        password = "1234",
+                        vehicleBrand = "Toyota",
+                        vehicleModel = "Hilux",
+                        initialOdometer = 24500.0,
+                        licensePlate = "M0CK-123",
+                        vehicleType = "Car"
+                    )
+                }
+                prefs.edit().putBoolean("is_logged_in", true).apply()
+                _isLoggedIn.value = true
+                _currentTab.value = GarageTab.DASHBOARD
+            } else {
+                _authError.value = "Credenciales inválidas"
+            }
+
+            _authLoading.value = false
         }
-        return false
+
+        // Return true optimistically — the actual result is handled via StateFlows
+        return true
     }
 
     fun logoutUser() {
         prefs.edit().putBoolean("is_logged_in", false).apply()
         _isLoggedIn.value = false
+        TokenManager.clearToken()
     }
 
     fun resetToAuth() {
@@ -143,6 +228,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
         _isLoggedIn.value = false
         _isRegistered.value = false
         _showSplash.value = true
+        TokenManager.clearToken()
     }
 
     // --- Tab state ---
@@ -189,9 +275,17 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     }
 
     init {
+        // Initialize TokenManager
+        TokenManager.init(context)
+
         // Pre-populate DB if it doesn't have any vehicles yet
         viewModelScope.launch {
             repository.prepopulateIfEmpty()
+
+            // If user is logged in and has a token, attempt background sync
+            if (_isLoggedIn.value && TokenManager.isAuthenticated()) {
+                repository.syncLocalWithRemote()
+            }
         }
         loadCategoryConfig()
     }

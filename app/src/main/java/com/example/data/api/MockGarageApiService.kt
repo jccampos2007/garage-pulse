@@ -5,7 +5,14 @@ import com.example.data.model.UserProfile
 import com.example.data.model.Vehicle
 import kotlinx.coroutines.delay
 
-class MockGarageApiService : GarageApiService {
+/**
+ * Mock implementation for local testing without a backend server.
+ * This class is NOT connected to the GarageApiService Retrofit interface.
+ * It is preserved for unit testing and offline-only development scenarios.
+ * 
+ * To use: instantiate directly as MockGarageApiService() in tests.
+ */
+class MockGarageApiService {
 
     private var userProfileState = UserProfile(
         id = 1,
@@ -102,23 +109,23 @@ class MockGarageApiService : GarageApiService {
         )
     }
 
-    override suspend fun getUserProfile(): UserProfile {
+    suspend fun getUserProfile(): UserProfile {
         delay(800) // simulate API latency
         return userProfileState
     }
 
-    override suspend fun updateUserProfile(profile: UserProfile): UserProfile {
+    suspend fun updateUserProfile(profile: UserProfile): UserProfile {
         delay(1000)
         userProfileState = profile
         return userProfileState
     }
 
-    override suspend fun getVehicles(): List<Vehicle> {
+    suspend fun getVehicles(): List<Vehicle> {
         delay(900)
         return vehiclesListState.toList()
     }
 
-    override suspend fun createVehicle(vehicle: Vehicle): Vehicle {
+    suspend fun createVehicle(vehicle: Vehicle): Vehicle {
         delay(1200)
         val newVehicle = if (vehicle.id == 0) {
             vehicle.copy(id = (vehiclesListState.maxOfOrNull { it.id } ?: 0) + 1)
@@ -129,7 +136,7 @@ class MockGarageApiService : GarageApiService {
         return newVehicle
     }
 
-    override suspend fun updateVehicle(id: Int, vehicle: Vehicle): Vehicle {
+    suspend fun updateVehicle(id: Int, vehicle: Vehicle): Vehicle {
         delay(1000)
         val index = vehiclesListState.indexOfFirst { it.id == id }
         if (index != -1) {
@@ -140,22 +147,22 @@ class MockGarageApiService : GarageApiService {
         return vehicle
     }
 
-    override suspend fun deleteVehicle(id: Int) {
+    suspend fun deleteVehicle(id: Int) {
         delay(800)
         vehiclesListState.removeAll { it.id == id }
     }
 
-    override suspend fun getAllServices(): List<ServiceLog> {
+    suspend fun getAllServices(): List<ServiceLog> {
         delay(950)
         return servicesListState.toList()
     }
 
-    override suspend fun getServicesForVehicle(vehicleId: Int): List<ServiceLog> {
+    suspend fun getServicesForVehicle(vehicleId: Int): List<ServiceLog> {
         delay(700)
         return servicesListState.filter { it.vehicleId == vehicleId }
     }
 
-    override suspend fun createServiceLog(serviceLog: ServiceLog): ServiceLog {
+    suspend fun createServiceLog(serviceLog: ServiceLog): ServiceLog {
         delay(1100)
         val newLog = if (serviceLog.id == 0) {
             serviceLog.copy(id = (servicesListState.maxOfOrNull { it.id } ?: 0) + 1)
@@ -166,7 +173,7 @@ class MockGarageApiService : GarageApiService {
         return newLog
     }
 
-    override suspend fun deleteServiceLog(id: Int) {
+    suspend fun deleteServiceLog(id: Int) {
         delay(800)
         servicesListState.removeAll { it.id == id }
     }

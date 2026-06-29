@@ -1382,6 +1382,24 @@ fun LoginScreenLayout(
     var passwordVisible by remember { mutableStateOf(false) }
     var loginFailed by remember { mutableStateOf(false) }
 
+    val authLoading by viewModel.authLoading.collectAsState()
+    val authError by viewModel.authError.collectAsState()
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+
+    // React to successful login
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            onLoginSuccess()
+        }
+    }
+
+    // React to auth error
+    LaunchedEffect(authError) {
+        if (authError != null) {
+            loginFailed = true
+        }
+    }
+
     val scrollState = rememberScrollState()
 
     Column(
@@ -1452,7 +1470,7 @@ fun LoginScreenLayout(
                         tint = MaterialTheme.colorScheme.error
                     )
                     Text(
-                        text = "Correo o contraseña incorrectos. Por favor, verifica.",
+                        text = authError ?: "Correo o contraseña incorrectos. Por favor, verifica.",
                         color = MaterialTheme.colorScheme.onErrorContainer,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -1466,10 +1484,12 @@ fun LoginScreenLayout(
             onValueChange = {
                 email = it
                 loginFailed = false
+                viewModel.clearAuthError()
             },
             label = { Text("Correo Electrónico") },
             leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = Color(0xFFE75C31)) },
             singleLine = true,
+            enabled = !authLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("login_email_input"),
@@ -1493,6 +1513,7 @@ fun LoginScreenLayout(
             onValueChange = {
                 password = it
                 loginFailed = false
+                viewModel.clearAuthError()
             },
             label = { Text("Contraseña") },
             leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFE75C31)) },
@@ -1507,6 +1528,7 @@ fun LoginScreenLayout(
             },
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             singleLine = true,
+            enabled = !authLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("login_password_input"),
@@ -1528,16 +1550,14 @@ fun LoginScreenLayout(
         Button(
             onClick = {
                 if (email.isNotBlank() && password.isNotBlank()) {
-                    val success = viewModel.loginUser(email.trim(), password)
-                    if (success) {
-                        onLoginSuccess()
-                    } else {
-                        loginFailed = true
-                    }
+                    loginFailed = false
+                    viewModel.clearAuthError()
+                    viewModel.loginUser(email.trim(), password)
                 } else {
                     loginFailed = true
                 }
             },
+            enabled = !authLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp)
@@ -1548,10 +1568,18 @@ fun LoginScreenLayout(
                 contentColor = Color.White
             )
         ) {
-            Text(
-                text = "Iniciar Sesión",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-            )
+            if (authLoading) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(22.dp)
+                )
+            } else {
+                Text(
+                    text = "Iniciar Sesión",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
