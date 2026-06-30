@@ -98,9 +98,12 @@ fun DashboardScreen(
             "Aceite Sintético" to TaskRule("Aceite Sintético", 10000.0, 180),
             "Aceite Mineral" to TaskRule("Aceite Mineral", 5000.0, 90),
             "Filtro de Aceite" to TaskRule("Filtro de Aceite", 10000.0, 180),
+            "default" to TaskRule("Revisión", 10000.0, 180)
+        ),
+        "Filtros" to mapOf(
             "Filtro de Aire" to TaskRule("Filtro de Aire", 15000.0, 365),
             "Filtro de Cabina" to TaskRule("Filtro de Cabina", 15000.0, 365),
-            "default" to TaskRule("Revisión", 10000.0, 180)
+            "default" to TaskRule("Revisión de Filtros", 15000.0, 365)
         ),
         "Frenos" to mapOf(
             "Pastillas" to TaskRule("Pastillas", 25000.0, 730),
@@ -124,7 +127,7 @@ fun DashboardScreen(
     val computedTasks = predictiveConfig.mapNotNull { (catName, tasksMap) ->
         val logsForCat = allLogs.filter { it.vehicleId == (activeVehicle?.id ?: -1) && it.category.split(", ").contains(catName) }
         
-        val evaluations = tasksMap.map { (detailKey, rule) ->
+        val evaluations = tasksMap.mapNotNull { (detailKey, rule) ->
             val validLogs = if (detailKey == "default") {
                 logsForCat
             } else {
@@ -140,14 +143,7 @@ fun DashboardScreen(
                 baseMileage = latestLog.mileage
                 baseDate = latestLog.date
             } else {
-                val cycleIndex = Math.floor(currentOdometer / rule.intervalKm)
-                val lastMilestoneMileage = cycleIndex * rule.intervalKm
-                baseMileage = if (lastMilestoneMileage >= 0.0) lastMilestoneMileage else 0.0
-                
-                val kmsSinceMilestone = currentOdometer - baseMileage
-                val kpd = if ((activeVehicle?.calculatedKpd ?: 0.0) > 0.0) activeVehicle!!.calculatedKpd else 42.5
-                val estDays = kmsSinceMilestone / kpd
-                baseDate = currentTimeMillis - (estDays * 24.0 * 60.0 * 60.0 * 1000.0).toLong()
+                return@mapNotNull null
             }
 
             val remainingKm = (baseMileage + rule.intervalKm) - currentOdometer
@@ -167,14 +163,7 @@ fun DashboardScreen(
                 "Batería" -> Icons.Default.FlashOn
                 else -> Icons.Default.Build
             }
-            val iconColor = when (catName) {
-                "Cambio de Aceite" -> MaterialTheme.colorScheme.primary
-                "Filtros" -> MaterialTheme.colorScheme.secondary
-                "Frenos" -> MaterialTheme.colorScheme.tertiary
-                "Neumáticos" -> MaterialTheme.colorScheme.primary
-                "Batería" -> MaterialTheme.colorScheme.secondary
-                else -> MaterialTheme.colorScheme.outline
-            }
+            val iconColor = if (isDark) Color.White else MaterialTheme.colorScheme.primary
 
             MaintenanceTaskResult(
                 category = catName,
@@ -402,27 +391,6 @@ fun DashboardScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Estatus Movido
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF4ADE80)) // green indicator
-                    )
-                    Text(
-                        text = "Estatus: Óptimo",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontWeight = FontWeight.Medium
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
                 // Banner de Calibración
                 if ((activeVehicle?.calculatedKpd ?: 0.0) <= 0.0) {
                     val calibKm = Math.max(0.0, (activeVehicle?.odometer ?: 0.0) - (activeVehicle?.initialKm ?: activeVehicle?.odometer ?: 0.0))
@@ -603,6 +571,15 @@ fun DashboardScreen(
                         .fillMaxWidth()
                         .padding(20.dp)
                 ) {
+                    val actualKpd = activeVehicle?.calculatedKpd ?: 0.0
+                    val baselineKpd = when (activeVehicle?.usageType) {
+                        "TRANSPORTE_APPS" -> 150.0
+                        "CARGA" -> 200.0
+                        "FLOTA_COMERCIAL" -> 120.0
+                        else -> 40.0
+                    }
+                    val kpdToDisplay = if (actualKpd > 0.0) actualKpd else baselineKpd
+
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -617,45 +594,29 @@ fun DashboardScreen(
                             modifier = Modifier.alignByBaseline()
                         )
                         Text(
-                            text = unitLabel,
-                            style = MaterialTheme.typography.titleLarge.copy(
+                            text = unitLabel.lowercase(),
+                            style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary
                             ),
                             modifier = Modifier.alignByBaseline()
                         )
-                    }
-                    Spacer(modifier = Modifier.height(18.dp))
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                        thickness = 1.dp
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val actualKpd = activeVehicle?.calculatedKpd ?: 0.0
-                        val baselineKpd = when (activeVehicle?.usageType) {
-                            "TRANSPORTE_APPS" -> 150.0
-                            "CARGA" -> 200.0
-                            "FLOTA_COMERCIAL" -> 120.0
-                            else -> 40.0
-                        }
-                        val kpdToDisplay = if (actualKpd > 0.0) actualKpd else baselineKpd
-
+                        Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Promedio Diario",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = displayDist(kpdToDisplay),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+                            ),
+                            modifier = Modifier.alignByBaseline()
                         )
                         Text(
-                            text = "${displayDist(kpdToDisplay)} $unitLabel",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            text = " ${unitLabel.lowercase()}/día",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier.alignByBaseline()
                         )
                     }
                     Spacer(modifier = Modifier.height(18.dp))
@@ -781,18 +742,30 @@ fun DashboardScreen(
                             verticalAlignment = Alignment.Top
                         ) {
                             Column {
+                                val wearIdx = mostUrgentTask?.wearIndex ?: 0f
+                                val statusText = when {
+                                    wearIdx >= 0.85f -> "Ventana crítica"
+                                    wearIdx >= 0.60f -> "Atención próxima"
+                                    else -> "Al día"
+                                }
                                 Text(
-                                    text = "Salud General: ${Math.round(overallHealthPercent)}% • Ventana crítica",
+                                    text = "Salud General: ${Math.round(overallHealthPercent)}% • $statusText",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = "Warning",
-                                    tint = if ((mostUrgentTask?.wearIndex ?: 0f) >= 0.85f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(28.dp)
-                                )
+                            val wearIdxForIcon = mostUrgentTask?.wearIndex ?: 0f
+                            val (iconVector, iconTint) = when {
+                                wearIdxForIcon >= 0.85f -> Icons.Default.Warning to MaterialTheme.colorScheme.error
+                                wearIdxForIcon >= 0.60f -> Icons.Default.Warning to Color(0xFFFFB300)
+                                else -> Icons.Default.CheckCircle to Color(0xFF4CAF50)
+                            }
+                            Icon(
+                                imageVector = iconVector,
+                                contentDescription = "Status Icon",
+                                tint = iconTint,
+                                modifier = Modifier.size(28.dp)
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -803,13 +776,13 @@ fun DashboardScreen(
                             verticalAlignment = Alignment.Bottom
                         ) {
                             Text(
-                                text = "PROXIMIDAD AL LÍMITE (${mostUrgentTask?.category ?: "NA"})",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                text = mostUrgentTask?.category ?: "NA",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = "LÍMITE ${Math.round((mostUrgentTask?.wearIndex ?: 0f) * 100)}%",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                text = "${Math.round((mostUrgentTask?.wearIndex ?: 0f) * 100)}%",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 color = if ((mostUrgentTask?.wearIndex ?: 0f) >= 0.85f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                             )
                         }
@@ -842,7 +815,7 @@ fun DashboardScreen(
                             val statusText = if (isOverdue) {
                                 "Atención: ${mostUrgentTask.subtitle} vencido (Registrar)"
                             } else {
-                                "Próximo: ${mostUrgentTask.subtitle} para ${sdf.format(Date(estDateMillis))}"
+                                sdf.format(Date(estDateMillis))
                             }
 
                             Row(
@@ -865,7 +838,7 @@ fun DashboardScreen(
                                 )
                                 Text(
                                     text = statusText,
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                                     color = if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
