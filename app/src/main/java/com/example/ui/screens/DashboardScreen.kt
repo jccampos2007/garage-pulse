@@ -73,6 +73,7 @@ fun DashboardScreen(
     val allLogs by viewModel.allServiceLogs.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val isDark by viewModel.isDarkTheme.collectAsState()
+    val categoryConfig by viewModel.categoryConfig.collectAsState()
 
     var showSupportDialog by remember { mutableStateOf(false) }
 
@@ -88,50 +89,25 @@ fun DashboardScreen(
     }
 
     val hasServiceLogs = allLogs.any { it.vehicleId == (activeVehicle?.id ?: -1) }
-    val currentOdometer = activeVehicle?.odometer ?: 42500.0
+    val currentOdometer = activeVehicle?.odometer ?: 0.0
     val currentTimeMillis = System.currentTimeMillis()
 
-    data class TaskRule(val displayName: String, val intervalKm: Double, val intervalDays: Int)
-
-    val predictiveConfig = mapOf(
-        "Cambio de Aceite" to mapOf(
-            "Aceite Sintético" to TaskRule("Aceite Sintético", 10000.0, 180),
-            "Aceite Mineral" to TaskRule("Aceite Mineral", 5000.0, 90),
-            "Filtro de Aceite" to TaskRule("Filtro de Aceite", 10000.0, 180),
-            "default" to TaskRule("Revisión", 10000.0, 180)
-        ),
-        "Filtros" to mapOf(
-            "Filtro de Aire" to TaskRule("Filtro de Aire", 15000.0, 365),
-            "Filtro de Cabina" to TaskRule("Filtro de Cabina", 15000.0, 365),
-            "default" to TaskRule("Revisión de Filtros", 15000.0, 365)
-        ),
-        "Frenos" to mapOf(
-            "Pastillas" to TaskRule("Pastillas", 25000.0, 730),
-            "Líquido de Frenos" to TaskRule("Líquido de Frenos", 40000.0, 730),
-            "Discos" to TaskRule("Discos", 50000.0, 1095),
-            "default" to TaskRule("Revisión", 30000.0, 730)
-        ),
-        "Neumáticos" to mapOf(
-            "Cambio de Llantas" to TaskRule("Cambio de Llantas", 40000.0, 730),
-            "Alineación" to TaskRule("Alineación", 10000.0, 180),
-            "Balanceo" to TaskRule("Balanceo", 10000.0, 180),
-            "Rotación" to TaskRule("Rotación", 10000.0, 180),
-            "default" to TaskRule("Revisión", 40000.0, 730)
-        ),
-        "Batería" to mapOf(
-            "Reemplazo" to TaskRule("Reemplazo", 60000.0, 1095),
-            "default" to TaskRule("Revisión", 60000.0, 1095)
-        )
-    )
-
-    val computedTasks = predictiveConfig.mapNotNull { (catName, tasksMap) ->
-        val logsForCat = allLogs.filter { it.vehicleId == (activeVehicle?.id ?: -1) && it.category.split(", ").contains(catName) }
+    val computedTasks = categoryConfig.mapNotNull { catRule ->
+        val catName = catRule.categoryName
+        val logsForCat = allLogs.filter { log ->
+            log.vehicleId == (activeVehicle?.id ?: -1) && (
+                log.category.split(", ").any { c -> c.trim().equals(catName, ignoreCase = true) } ||
+                (catName == "Neumáticos" && log.category.split(", ").any { c -> c.trim().equals("Llantas", ignoreCase = true) }) ||
+                (catName == "Llantas" && log.category.split(", ").any { c -> c.trim().equals("Neumáticos", ignoreCase = true) })
+            )
+        }
         
-        val evaluations = tasksMap.mapNotNull { (detailKey, rule) ->
-            val validLogs = if (detailKey == "default") {
-                logsForCat
-            } else {
-                logsForCat.filter { it.details.split(",").map { d -> d.trim() }.contains(detailKey) }
+        val evaluations = catRule.subServices.mapNotNull { rule ->
+            val validLogs = logsForCat.filter { log ->
+                log.title.equals(rule.description, ignoreCase = true) ||
+                log.description.contains(rule.description, ignoreCase = true) ||
+                log.details.split(",").map { d -> d.trim() }.any { d -> d.equals(rule.description, ignoreCase = true) } ||
+                (logsForCat.size == 1) // fallback if only general log exists for this category
             }
             
             val latestLog = validLogs.maxByOrNull { it.date }
@@ -159,7 +135,7 @@ fun DashboardScreen(
                 "Cambio de Aceite" -> Icons.Default.OilBarrel
                 "Filtros" -> Icons.Default.Build
                 "Frenos" -> Icons.Default.Settings
-                "Neumáticos" -> Icons.Default.TireRepair
+                "Neumáticos", "Llantas" -> Icons.Default.TireRepair
                 "Batería" -> Icons.Default.FlashOn
                 else -> Icons.Default.Build
             }
@@ -167,7 +143,7 @@ fun DashboardScreen(
 
             MaintenanceTaskResult(
                 category = catName,
-                subtitle = rule.displayName,
+                subtitle = rule.description,
                 nextMilestoneKm = baseMileage + rule.intervalKm,
                 remainingKm = remainingKm,
                 remainingDays = remainingDays,
@@ -192,7 +168,7 @@ fun DashboardScreen(
         label = "headerColor"
     )
     val contentColor by animateColorAsState(
-        targetValue = if (isScrolled) MaterialTheme.colorScheme.primary else if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
+        targetValue = if (isScrolled) MaterialTheme.colorScheme.primary else Color.White,
         label = "contentColor"
     )
 
@@ -200,7 +176,7 @@ fun DashboardScreen(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             Column(modifier = Modifier.background(headerColor)) {
-                Spacer(modifier = Modifier.statusBarsPadding())
+                Spacer(modifier = Modifier.statusBarsPadding().height(16.dp))
                 TopAppBar(
                     title = {
                         Row(
@@ -572,23 +548,26 @@ fun DashboardScreen(
                         .padding(20.dp)
                 ) {
                     val actualKpd = activeVehicle?.calculatedKpd ?: 0.0
-                    val baselineKpd = when (activeVehicle?.usageType) {
-                        "TRANSPORTE_APPS" -> 150.0
-                        "CARGA" -> 200.0
-                        "FLOTA_COMERCIAL" -> 120.0
-                        else -> 40.0
-                    }
-                    val kpdToDisplay = if (actualKpd > 0.0) actualKpd else baselineKpd
+                    val vehicleLogs = allLogs.filter { it.vehicleId == (activeVehicle?.id ?: -1) }.sortedBy { it.date }
+                    val calculatedFromLogs = if (vehicleLogs.size >= 2) {
+                        val oldest = vehicleLogs.first()
+                        val newest = vehicleLogs.last()
+                        val days = (newest.date - oldest.date) / (1000.0 * 60 * 60 * 24)
+                        val dist = newest.mileage - oldest.mileage
+                        if (days > 0.1 && dist > 0) dist / days else 0.0
+                    } else 0.0
+                    val kpdToDisplay = if (actualKpd > 0.0) actualKpd else calculatedFromLogs
 
                     Row(
                         verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         Text(
-                            text = displayDist(activeVehicle?.odometer ?: 42500.0),
+                            text = displayDist(activeVehicle?.odometer ?: 0.0),
                             style = MaterialTheme.typography.displayMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                letterSpacing = (-1.5).sp
                             ),
                             fontSize = 44.sp,
                             modifier = Modifier.alignByBaseline()
@@ -596,25 +575,29 @@ fun DashboardScreen(
                         Text(
                             text = unitLabel.lowercase(),
                             style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                letterSpacing = (-0.5).sp
                             ),
                             modifier = Modifier.alignByBaseline()
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Text(
-                            text = displayDist(kpdToDisplay),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+                            text = if (kpdToDisplay > 0.0) displayDist(kpdToDisplay) else "--",
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
+                                letterSpacing = (-1.0).sp
                             ),
+                            fontSize = 26.sp,
                             modifier = Modifier.alignByBaseline()
                         )
                         Text(
-                            text = " ${unitLabel.lowercase()}/día",
+                            text = "${unitLabel.lowercase()}/día",
                             style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                letterSpacing = (-0.5).sp
                             ),
                             modifier = Modifier.alignByBaseline()
                         )
@@ -1059,24 +1042,31 @@ fun TaskItemRow(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
             }
+            Spacer(modifier = Modifier.width(12.dp))
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = milestoneText,
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1
                 )
                 Text(
                     text = dueText.uppercase(),
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
                 )
             }
         }

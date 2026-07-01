@@ -13,6 +13,9 @@ import android.os.Looper
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import com.example.data.api.ApiVehicleUpdate
+import com.example.data.api.RetrofitClient
+import com.example.data.api.TokenManager
 import com.example.data.local.AppDatabase
 import com.google.android.gms.location.*
 import kotlinx.coroutines.CoroutineScope
@@ -115,6 +118,23 @@ class TelemetryService : Service() {
                         )
                         dao.updateVehicle(updatedVehicle)
 
+                        try {
+                            if (TokenManager.isAuthenticated()) {
+                                RetrofitClient.garageApiService.updateVehicle(
+                                    updatedVehicle.id,
+                                    ApiVehicleUpdate(
+                                        odometer = updatedVehicle.odometer,
+                                        lastKnownLocation = updatedVehicle.lastKnownLocation,
+                                        lastUpdatedDate = updatedVehicle.lastUpdatedDate,
+                                        calculatedKpd = updatedVehicle.calculatedKpd
+                                    )
+                                )
+                                Log.d("TelemetryService", "Synced updated odometer to API: ${updatedVehicle.odometer} km")
+                            }
+                        } catch (e: Exception) {
+                            Log.w("TelemetryService", "Failed to sync telemetry to API: ${e.message}")
+                        }
+
                         // Accumulate GPS tracked distance in preferences (total and today)
                         val gpsPrefs = getSharedPreferences("GaragePulsePrefs", Context.MODE_PRIVATE)
                         val currentGpsDist = gpsPrefs.getFloat("gps_distance_vehicle_${activeVehicle.id}", 0f)
@@ -137,11 +157,22 @@ class TelemetryService : Service() {
                     }
                 }
             } else {
-                // First time getting location
                 val updatedVehicle = activeVehicle.copy(
                     lastKnownLocation = "${location.latitude},${location.longitude}"
                 )
                 dao.updateVehicle(updatedVehicle)
+                try {
+                    if (TokenManager.isAuthenticated()) {
+                        RetrofitClient.garageApiService.updateVehicle(
+                            updatedVehicle.id,
+                            ApiVehicleUpdate(
+                                lastKnownLocation = updatedVehicle.lastKnownLocation
+                            )
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.w("TelemetryService", "Failed to sync initial location to API: ${e.message}")
+                }
             }
         }
     }
@@ -160,45 +191,51 @@ class TelemetryService : Service() {
     private suspend fun checkPredictiveAlerts(dao: com.example.data.local.DatabaseDao, activeVehicle: com.example.data.model.Vehicle, newOdometer: Double) {
         val logs = dao.getServiceLogsForVehicle(activeVehicle.id).firstOrNull() ?: return
         val garagePrefs = getSharedPreferences("garage_pulse_prefs", Context.MODE_PRIVATE)
-        val defaults = mapOf(
-            "Cambio de Aceite" to Pair(10000.0, 180),
-            "Filtros" to Pair(15000.0, 365),
-            "Frenos" to Pair(30000.0, 730),
-            "Neumáticos" to Pair(40000.0, 730),
-            "Batería" to Pair(60000.0, 1095)
+        val defaultCategories = listOf(
+            Pair("Neumáticos", listOf(Pair("Rotación y Alineación", Pair(10000.0, 180)), Pair("Alineación", Pair(10000.0, 180)), Pair("Cambio", Pair(40000.0, 730)))),
+            Pair("Filtros", listOf(Pair("Gasolina", Pair(20000.0, 365)), Pair("Aceite", Pair(10000.0, 180)), Pair("Aire AC", Pair(15000.0, 365)))),
+            Pair("Cambio de Aceite", listOf(Pair("Sintético 5W-30", Pair(10000.0, 180)), Pair("Mineral", Pair(5000.0, 90)), Pair("Semi-Sintético", Pair(7500.0, 135)))),
+            Pair("Frenos", listOf(Pair("Pastillas y Discos", Pair(25000.0, 730)), Pair("Cambio de Liga", Pair(40000.0, 730)), Pair("Ajuste/Revisión", Pair(15000.0, 365)))),
+            Pair("Batería", listOf(Pair("Test de Corriente", Pair(15000.0, 365)), Pair("Cambio de Batería", Pair(60000.0, 1095)), Pair("Limpieza de Bornes", Pair(10000.0, 180))))
         )
-        val categoryConfig = mutableMapOf<String, Pair<Double, Int>>()
-        for ((key, defaultVal) in defaults) {
-            val km = garagePrefs.getFloat("config_km_$key", defaultVal.first.toFloat()).toDouble()
-            val days = garagePrefs.getInt("config_days_$key", defaultVal.second)
-            categoryConfig[key] = Pair(km, days)
-        }
         val currentTime = System.currentTimeMillis()
         val prefs = getSharedPreferences("GaragePulsePrefs", Context.MODE_PRIVATE)
 
-        for ((category, config) in categoryConfig) {
-            val intervalKm = config.first
-            val intervalDays = config.second
-            
-            val categoryLogs = logs.filter { it.category == category }
+        for ((category, subServices) in defaultCategories) {
+            val categoryLogs = logs.filter { log ->
+                log.category.split(", ").any { c -> c.trim().equals(category, ignoreCase = true) } ||
+                (category == "Neumáticos" && log.category.split(", ").any { c -> c.trim().equals("Llantas", ignoreCase = true) })
+            }
             if (categoryLogs.isEmpty()) continue
-            val latestLog = categoryLogs.maxByOrNull { it.date } ?: continue
-            
-            val baseMileage = latestLog.mileage
-            val baseDate = latestLog.date
-            
-            val wearKm = ((newOdometer - baseMileage) / intervalKm).toFloat().coerceIn(0f, 1f)
-            val wearDays = ((currentTime - baseDate).toDouble() / (24.0*60*60*1000) / intervalDays).toFloat().coerceIn(0f, 1f)
-            val wearIndex = Math.max(wearKm, wearDays)
-            
-            if (wearIndex >= 0.90f) {
-                val alertLevel = if (wearIndex >= 1.0f) 100 else 90
-                val lastAlertKey = "alert_${activeVehicle.id}_${category}_${latestLog.id}"
-                val lastAlertLevelSent = prefs.getInt(lastAlertKey, 0)
+
+            for ((subName, defaultPair) in subServices) {
+                val intervalKm = garagePrefs.getFloat("config_sub_km_${category}_${subName}", defaultPair.first.toFloat()).toDouble()
+                val intervalDays = garagePrefs.getInt("config_sub_days_${category}_${subName}", defaultPair.second)
+
+                val validLogs = categoryLogs.filter { log ->
+                    log.title.equals(subName, ignoreCase = true) ||
+                    log.description.contains(subName, ignoreCase = true) ||
+                    log.details.split(",").map { d -> d.trim() }.any { d -> d.equals(subName, ignoreCase = true) } ||
+                    (categoryLogs.size == 1)
+                }
+                val latestLog = validLogs.maxByOrNull { it.date } ?: continue
                 
-                if (alertLevel > lastAlertLevelSent) {
-                    sendPushNotification(category, alertLevel)
-                    prefs.edit().putInt(lastAlertKey, alertLevel).apply()
+                val baseMileage = latestLog.mileage
+                val baseDate = latestLog.date
+                
+                val wearKm = ((newOdometer - baseMileage) / intervalKm).toFloat().coerceIn(0f, 1f)
+                val wearDays = ((currentTime - baseDate).toDouble() / (24.0*60*60*1000) / intervalDays).toFloat().coerceIn(0f, 1f)
+                val wearIndex = Math.max(wearKm, wearDays)
+                
+                if (wearIndex >= 0.90f) {
+                    val alertLevel = if (wearIndex >= 1.0f) 100 else 90
+                    val lastAlertKey = "alert_${activeVehicle.id}_${category}_${subName}_${latestLog.id}"
+                    val lastAlertLevelSent = prefs.getInt(lastAlertKey, 0)
+                    
+                    if (alertLevel > lastAlertLevelSent) {
+                        sendPushNotification("$subName ($category)", alertLevel)
+                        prefs.edit().putInt(lastAlertKey, alertLevel).apply()
+                    }
                 }
             }
         }

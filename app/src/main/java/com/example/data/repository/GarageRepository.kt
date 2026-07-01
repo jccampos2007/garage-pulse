@@ -117,7 +117,12 @@ class GarageRepository(private val dao: DatabaseDao) {
                 ApiVehicleUpdate(
                     odometer = vehicle.odometer,
                     customIllustrationUrl = vehicle.customIllustrationUrl,
-                    isActive = vehicle.isActive
+                    isActive = vehicle.isActive,
+                    lastKnownLocation = vehicle.lastKnownLocation,
+                    lastUpdatedDate = vehicle.lastUpdatedDate,
+                    calculatedKpd = vehicle.calculatedKpd,
+                    usageType = vehicle.usageType,
+                    status = vehicle.status
                 )
             )
             Log.d(TAG, "Vehicle update synced to API: ${vehicle.name}")
@@ -179,7 +184,7 @@ class GarageRepository(private val dao: DatabaseDao) {
                 if (daysDiff >= 1.0) {
                     val kpd = (maxKm - minKm) / daysDiff
                     val updatedVehicle = vehicle.copy(calculatedKpd = maxOf(0.0, kpd))
-                    dao.updateVehicle(updatedVehicle)
+                    updateVehicle(updatedVehicle)
                 }
             }
         }

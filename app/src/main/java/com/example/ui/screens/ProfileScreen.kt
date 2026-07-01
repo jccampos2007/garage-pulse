@@ -66,6 +66,7 @@ fun ProfileScreen(
     var showAddVehicleDialog by remember { mutableStateOf(false) }
     var showMaintenanceConfigDialog by remember { mutableStateOf(false) }
     var editingCategory by remember { mutableStateOf<String?>(null) }
+    var editingSubService by remember { mutableStateOf<String?>(null) }
     var tempSubtitle by remember { mutableStateOf("") }
     var tempKm by remember { mutableStateOf("") }
     var tempDays by remember { mutableStateOf("") }
@@ -901,22 +902,40 @@ fun ProfileScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    categoryConfig.forEach { (catName, config) ->
+                    categoryConfig.forEach { catConfig ->
                         Card(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                editingCategory = catName
-                                tempSubtitle = config.first
-                                tempKm = config.second.toInt().toString()
-                                tempDays = config.third.toString()
-                            },
+                            modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(catName, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("Detalle: ${config.first}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
-                                Text("Intervalo: ${config.second.toInt()} km / ${config.third} días", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(catConfig.categoryName, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                                
+                                catConfig.subServices.forEach { subRule ->
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth().clickable {
+                                            editingCategory = catConfig.categoryName
+                                            editingSubService = subRule.description
+                                            tempSubtitle = subRule.description
+                                            tempKm = subRule.intervalKm.toInt().toString()
+                                            tempDays = subRule.intervalDays.toString()
+                                        },
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(subRule.description, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                                                Text("${subRule.intervalKm.toInt()} km / ${subRule.intervalDays} días", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                            Icon(Icons.Default.Edit, contentDescription = "Editar", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -930,18 +949,19 @@ fun ProfileScreen(
         )
     }
 
-    if (editingCategory != null) {
+    if (editingCategory != null && editingSubService != null) {
         AlertDialog(
-            onDismissRequest = { editingCategory = null },
-            title = { Text("Editar $editingCategory") },
+            onDismissRequest = { 
+                editingCategory = null 
+                editingSubService = null
+            },
+            title = { Text("Editar $editingSubService") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = tempSubtitle,
-                        onValueChange = { tempSubtitle = it },
-                        label = { Text("Detalle (Ej. SINTÉTICO 5W-30)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    Text(
+                        text = "Categoría: $editingCategory",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
                     OutlinedTextField(
                         value = tempKm,
@@ -965,14 +985,18 @@ fun ProfileScreen(
                 Button(onClick = {
                     val kmVal = tempKm.toDoubleOrNull() ?: 10000.0
                     val daysVal = tempDays.toIntOrNull() ?: 180
-                    viewModel.saveCategoryConfigItem(editingCategory!!, tempSubtitle, kmVal, daysVal)
+                    viewModel.saveSubServiceConfig(editingCategory!!, editingSubService!!, kmVal, daysVal)
                     editingCategory = null
+                    editingSubService = null
                 }) {
                     Text("Guardar")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { editingCategory = null }) { Text("Cancelar") }
+                TextButton(onClick = { 
+                    editingCategory = null 
+                    editingSubService = null
+                }) { Text("Cancelar") }
             }
         )
     }

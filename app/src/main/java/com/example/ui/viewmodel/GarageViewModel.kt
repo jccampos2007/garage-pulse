@@ -16,11 +16,15 @@ enum class GarageTab {
     DASHBOARD, HISTORY, ADD, PROFILE
 }
 
-data class MaintenanceConfig(
-    val category: String,
-    val subtitle: String,
+data class SubServiceRule(
+    val description: String,
     val intervalKm: Double,
     val intervalDays: Int
+)
+
+data class CategoryMaintenanceConfig(
+    val categoryName: String,
+    val subServices: List<SubServiceRule>
 )
 
 
@@ -54,8 +58,8 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     val currentTab: StateFlow<GarageTab> = _currentTab.asStateFlow()
 
     // --- Maintenance Config State ---
-    private val _categoryConfig = MutableStateFlow<Map<String, Triple<String, Double, Int>>>(emptyMap())
-    val categoryConfig: StateFlow<Map<String, Triple<String, Double, Int>>> = _categoryConfig.asStateFlow()
+    private val _categoryConfig = MutableStateFlow<List<CategoryMaintenanceConfig>>(emptyList())
+    val categoryConfig: StateFlow<List<CategoryMaintenanceConfig>> = _categoryConfig.asStateFlow()
 
 
     fun dismissSplash() {
@@ -286,43 +290,105 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
             if (_isLoggedIn.value && TokenManager.isAuthenticated()) {
                 repository.syncLocalWithRemote()
             }
+
+            // Auto-start telemetry service if premium or trial is active
+            val profile = repository.userProfile.firstOrNull()
+            val activeVehicle = repository.activeVehicleFlow.firstOrNull()
+            val initialDate = activeVehicle?.initialDate ?: System.currentTimeMillis()
+            val daysSinceCreation = (System.currentTimeMillis() - initialDate) / (1000 * 60 * 60 * 24)
+            val isFreeTrial = daysSinceCreation <= 7
+            if ((profile != null && profile.isPremium) || isFreeTrial) {
+                val intent = android.content.Intent(context, com.example.service.TelemetryService::class.java)
+                try {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        context.startForegroundService(intent)
+                    } else {
+                        context.startService(intent)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("GarageViewModel", "Could not auto-start TelemetryService: ${e.message}")
+                }
+            }
         }
         loadCategoryConfig()
     }
 
     // --- CONFIG ACTIONS ---
     private fun loadCategoryConfig() {
-        val defaults = mapOf(
-            "Cambio de Aceite" to Triple("SINTÉTICO 5W-30", 10000.0, 180),
-            "Filtros" to Triple("FILTROS DE AIRE Y AC", 15000.0, 365),
-            "Frenos" to Triple("PASTILLAS Y DISCOS", 30000.0, 730),
-            "Neumáticos" to Triple("ROTACIÓN Y BALANCEO", 40000.0, 730),
-            "Batería" to Triple("TEST DE CORRIENTE", 60000.0, 1095)
+        val defaultCategories = listOf(
+            CategoryMaintenanceConfig(
+                categoryName = "Neumáticos",
+                subServices = listOf(
+                    SubServiceRule("Rotación y Alineación", 10000.0, 180),
+                    SubServiceRule("Alineación", 10000.0, 180),
+                    SubServiceRule("Cambio", 40000.0, 730)
+                )
+            ),
+            CategoryMaintenanceConfig(
+                categoryName = "Filtros",
+                subServices = listOf(
+                    SubServiceRule("Gasolina", 20000.0, 365),
+                    SubServiceRule("Aceite", 10000.0, 180),
+                    SubServiceRule("Aire AC", 15000.0, 365)
+                )
+            ),
+            CategoryMaintenanceConfig(
+                categoryName = "Cambio de Aceite",
+                subServices = listOf(
+                    SubServiceRule("Sintético 5W-30", 10000.0, 180),
+                    SubServiceRule("Mineral", 5000.0, 90),
+                    SubServiceRule("Semi-Sintético", 7500.0, 135)
+                )
+            ),
+            CategoryMaintenanceConfig(
+                categoryName = "Frenos",
+                subServices = listOf(
+                    SubServiceRule("Pastillas y Discos", 25000.0, 730),
+                    SubServiceRule("Cambio de Liga", 40000.0, 730),
+                    SubServiceRule("Ajuste/Revisión", 15000.0, 365)
+                )
+            ),
+            CategoryMaintenanceConfig(
+                categoryName = "Batería",
+                subServices = listOf(
+                    SubServiceRule("Test de Corriente", 15000.0, 365),
+                    SubServiceRule("Cambio de Batería", 60000.0, 1095),
+                    SubServiceRule("Limpieza de Bornes", 10000.0, 180)
+                )
+            )
         )
-        val currentConfig = mutableMapOf<String, Triple<String, Double, Int>>()
-        for ((key, defaultVal) in defaults) {
-            val subtitle = prefs.getString("config_sub_$key", defaultVal.first) ?: defaultVal.first
-            val km = prefs.getFloat("config_km_$key", defaultVal.second.toFloat()).toDouble()
-            val days = prefs.getInt("config_days_$key", defaultVal.third)
-            currentConfig[key] = Triple(subtitle, km, days)
+
+        val loadedList = defaultCategories.map { cat ->
+            val loadedSubServices = cat.subServices.map { sub ->
+                val km = prefs.getFloat("config_sub_km_${cat.categoryName}_${sub.description}", sub.intervalKm.toFloat()).toDouble()
+                val days = prefs.getInt("config_sub_days_${cat.categoryName}_${sub.description}", sub.intervalDays)
+                SubServiceRule(sub.description, km, days)
+            }
+            cat.copy(subServices = loadedSubServices)
         }
-        _categoryConfig.value = currentConfig
+        _categoryConfig.value = loadedList
+    }
+
+    fun saveSubServiceConfig(categoryName: String, description: String, intervalKm: Double, intervalDays: Int) {
+        prefs.edit()
+            .putFloat("config_sub_km_${categoryName}_${description}", intervalKm.toFloat())
+            .putInt("config_sub_days_${categoryName}_${description}", intervalDays)
+            .apply()
+        loadCategoryConfig() // Reload to update StateFlow
     }
 
     fun saveCategoryConfigItem(category: String, subtitle: String, intervalKm: Double, intervalDays: Int) {
-        prefs.edit()
-            .putString("config_sub_$category", subtitle)
-            .putFloat("config_km_$category", intervalKm.toFloat())
-            .putInt("config_days_$category", intervalDays)
-            .apply()
-        loadCategoryConfig() // Reload to update StateFlow
+        saveSubServiceConfig(category, subtitle, intervalKm, intervalDays)
     }
 
     // --- FORM ACTIONS ---
     fun setFormCategory(category: String) {
         formCategory.value = category
-        val defaultConfig = _categoryConfig.value[category]
-        formTitle.value = defaultConfig?.first ?: category
+        val firstCat = category.split(",").map { it.trim() }.firstOrNull() ?: category
+        val normalizedCat = if (firstCat.equals("Llantas", ignoreCase = true)) "Neumáticos" else firstCat
+        val catConfig = _categoryConfig.value.find { it.categoryName.equals(normalizedCat, ignoreCase = true) }
+        val defaultSub = catConfig?.subServices?.firstOrNull()?.description
+        formTitle.value = defaultSub ?: category
     }
 
     fun setFormTitle(title: String) {
@@ -351,7 +417,8 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
 
     fun resetForm(currentActiveVehicle: Vehicle?) {
         formCategory.value = "Cambio de Aceite"
-        formTitle.value = _categoryConfig.value["Cambio de Aceite"]?.first ?: "SINTÉTICO 5W-30"
+        val oilCat = _categoryConfig.value.find { it.categoryName == "Cambio de Aceite" }
+        formTitle.value = oilCat?.subServices?.firstOrNull()?.description ?: "Sintético 5W-30"
         formDate.value = System.currentTimeMillis()
         formCost.value = ""
         // Pre-populate form mileage converting to MI if needed
@@ -387,7 +454,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
             mileage = finalMileageKm,
             date = formDate.value,
             type = if (formCategory.value in listOf("Frenos", "Motor")) "REPARACIONES" else "PREVENTIVO",
-            details = formDetails.value
+            details = formDetails.value.ifBlank { formTitle.value }
         )
 
         viewModelScope.launch {

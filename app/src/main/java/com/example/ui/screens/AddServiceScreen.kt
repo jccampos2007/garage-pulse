@@ -57,6 +57,7 @@ fun AddServiceScreen(
     val activeVehicle by viewModel.activeVehicle.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val isDark by viewModel.isDarkTheme.collectAsState()
+    val categoryConfig by viewModel.categoryConfig.collectAsState()
 
     val useKm = userProfile.useKm
     val unitLabel = if (useKm) "KM" else "MI"
@@ -685,16 +686,13 @@ fun AddServiceScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             // Detalle del Servicio
-                            val suggestions = remember(category) {
-                                val cats = category.split(",").map { it.trim() }
-                                val mainCat = cats.firstOrNull() ?: ""
-                                when(mainCat) {
-                                    "Neumáticos" -> listOf("Rotación y Balanceo", "Cambio de Neumáticos", "Alineación", "Reparación/Parche")
-                                    "Frenos" -> listOf("Pastillas y Discos", "Cambio de Liga", "Ajuste/Revisión")
-                                    "Batería" -> listOf("Test de Corriente", "Cambio de Batería", "Limpieza de Bornes")
-                                    "Cambio de Aceite" -> listOf("Sintético 5W-30", "Mineral", "Semi-Sintético")
-                                    "Filtros" -> listOf("Filtros de Aire y AC", "Filtro de Gasolina", "Filtro de Aceite")
-                                    else -> emptyList()
+                            val suggestionsByCategory = remember(category, categoryConfig) {
+                                val cats = category.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                                cats.mapNotNull { cat ->
+                                    val normalized = if (cat.equals("Llantas", ignoreCase = true)) "Neumáticos" else cat
+                                    val catRule = categoryConfig.find { it.categoryName.equals(normalized, ignoreCase = true) }
+                                    val subs = catRule?.subServices?.map { it.description } ?: emptyList()
+                                    if (subs.isNotEmpty()) Pair(cat, subs) else null
                                 }
                             }
 
@@ -708,7 +706,10 @@ fun AddServiceScreen(
                                 )
                                 OutlinedTextField(
                                     value = formTitle,
-                                    onValueChange = { viewModel.setFormTitle(it) },
+                                    onValueChange = { 
+                                        viewModel.setFormTitle(it)
+                                        viewModel.setFormDetails(it)
+                                    },
                                     placeholder = { Text("Ej: Cambio de 2 neumáticos") },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
@@ -718,107 +719,62 @@ fun AddServiceScreen(
                                     )
                                 )
                                 
-                                if (suggestions.isNotEmpty()) {
+                                if (suggestionsByCategory.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Row(
-                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    val currentSelectedList = formTitle.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        suggestions.forEach { suggestion ->
-                                            SuggestionChip(
-                                                onClick = { viewModel.setFormTitle(suggestion) },
-                                                label = { Text(suggestion) },
-                                                colors = SuggestionChipDefaults.suggestionChipColors(
-                                                    containerColor = if (formTitle == suggestion) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                                                )
-                                            )
+                                        suggestionsByCategory.forEach { (catName, suggestions) ->
+                                            Column(modifier = Modifier.fillMaxWidth()) {
+                                                if (suggestionsByCategory.size > 1) {
+                                                    Text(
+                                                        text = catName,
+                                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                        color = if (isDark) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.padding(bottom = 4.dp, start = 2.dp)
+                                                    )
+                                                }
+                                                Row(
+                                                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    suggestions.forEach { suggestion ->
+                                                        val isChipSelected = currentSelectedList.any { it.equals(suggestion, ignoreCase = true) }
+                                                        SuggestionChip(
+                                                            onClick = {
+                                                                val newList = if (isChipSelected) {
+                                                                    currentSelectedList.filter { !it.equals(suggestion, ignoreCase = true) }
+                                                                } else {
+                                                                    currentSelectedList + suggestion
+                                                                }
+                                                                val newTitleStr = newList.joinToString(", ")
+                                                                viewModel.setFormTitle(newTitleStr)
+                                                                viewModel.setFormDetails(newTitleStr)
+                                                            },
+                                                            label = { Text(suggestion) },
+                                                            colors = SuggestionChipDefaults.suggestionChipColors(
+                                                                containerColor = if (isChipSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
                             HorizontalDivider(
                                 thickness = 0.5.dp,
                                 color = if (isDark) Color.White.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                             )
 
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Sub-details mapping
-                            val detailsMap = mapOf(
-                                "Cambio de Aceite" to listOf("Filtro de Aceite", "Filtro de Aire", "Filtro de Cabina", "Aceite Sintético", "Aceite Mineral"),
-                                "Frenos" to listOf("Pastillas", "Discos", "Líquido de Frenos", "Ajuste de Freno de Mano", "Rectificación"),
-                                "Neumáticos" to listOf("Rotación", "Alineación", "Balanceo", "Cambio de Llantas", "Revisión de Presión", "Parche"),
-                                "Batería" to listOf("Reemplazo", "Limpieza de Bornes", "Revisión de Alternador")
-                            )
-
-                            val availableDetails = selectedCats.flatMap { detailsMap[it] ?: emptyList() }.distinct()
-                            
-                            val selectedDetails = if (formDetailsStr.isBlank()) emptyList() else formDetailsStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-
-                            AnimatedVisibility(visible = availableDetails.isNotEmpty()) {
-                                Column {
-                                    Text(
-                                        text = "ACCIONES ESPECÍFICAS",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (isDark) Color.White.copy(alpha = 0.62f) else MaterialTheme.colorScheme.outline,
-                                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        availableDetails.chunked(2).forEach { rowItems ->
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                rowItems.forEach { detail ->
-                                                    val isSelected = selectedDetails.contains(detail)
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .weight(1f)
-                                                            .clip(RoundedCornerShape(12.dp))
-                                                            .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else if (isDark) Color.White.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                                                            .clickable {
-                                                                val newDetails = if (isSelected) selectedDetails - detail else selectedDetails + detail
-                                                                viewModel.setFormDetails(newDetails.joinToString(","))
-                                                            }
-                                                            .padding(8.dp),
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Checkbox(
-                                                            checked = isSelected,
-                                                            onCheckedChange = null,
-                                                            modifier = Modifier.size(20.dp),
-                                                            colors = CheckboxDefaults.colors(
-                                                                checkedColor = MaterialTheme.colorScheme.primary
-                                                            )
-                                                        )
-                                                        Spacer(modifier = Modifier.width(6.dp))
-                                                        Text(
-                                                            text = detail,
-                                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
-                                                        )
-                                                    }
-                                                }
-                                                if (rowItems.size == 1) {
-                                                    Spacer(modifier = Modifier.weight(1f))
-                                                }
-                                            }
-                                        }
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    HorizontalDivider(
-                                        thickness = 0.5.dp,
-                                        color = if (isDark) Color.White.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                }
-                            }
+                            Spacer(modifier = Modifier.height(4.dp))
 
                             // Snug Kilometraje and Date Row
                             Row(

@@ -181,5 +181,10 @@ fun ServiceLog.toApiDto(): ApiServiceLog = ApiServiceLog(
 data class ApiVehicleUpdate(
     val odometer: Double? = null,
     val customIllustrationUrl: String? = null,
-    val isActive: Boolean? = null
+    val isActive: Boolean? = null,
+    @Json(name = "last_known_location") val lastKnownLocation: String? = null,
+    @Json(name = "last_updated_date") val lastUpdatedDate: Long? = null,
+    @Json(name = "calculated_kpd") val calculatedKpd: Double? = null,
+    @Json(name = "usage_type") val usageType: String? = null,
+    val status: String? = null
 )
