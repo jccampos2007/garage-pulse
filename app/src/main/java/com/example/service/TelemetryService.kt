@@ -193,8 +193,9 @@ class TelemetryService : Service() {
         val garagePrefs = getSharedPreferences("garage_pulse_prefs", Context.MODE_PRIVATE)
         val defaultCategories = listOf(
             Pair("Neumáticos", listOf(Pair("Rotación y Alineación", Pair(10000.0, 180)), Pair("Alineación", Pair(10000.0, 180)), Pair("Cambio", Pair(40000.0, 730)))),
-            Pair("Filtros", listOf(Pair("Gasolina", Pair(20000.0, 365)), Pair("Aceite", Pair(10000.0, 180)), Pair("Aire AC", Pair(15000.0, 365)))),
-            Pair("Cambio de Aceite", listOf(Pair("Sintético 5W-30", Pair(10000.0, 180)), Pair("Mineral", Pair(5000.0, 90)), Pair("Semi-Sintético", Pair(7500.0, 135)))),
+            Pair("Filtros", listOf(Pair("filtro de gasolina", Pair(20000.0, 365)), Pair("Gasolina", Pair(20000.0, 365)), Pair("Aceite", Pair(10000.0, 180)), Pair("Aire AC", Pair(15000.0, 365)))),
+            Pair("Cambio de Aceite", listOf(Pair("Cambio de aceite", Pair(10000.0, 180)), Pair("Sintético 5W-30", Pair(10000.0, 180)), Pair("Mineral", Pair(5000.0, 90)), Pair("Semi-Sintético", Pair(7500.0, 135)))),
+            Pair("Motor", listOf(Pair("Goma de valvula", Pair(50000.0, 1095)), Pair("limpiesa de inyectores", Pair(25000.0, 365)))),
             Pair("Frenos", listOf(Pair("Pastillas y Discos", Pair(25000.0, 730)), Pair("Cambio de Liga", Pair(40000.0, 730)), Pair("Ajuste/Revisión", Pair(15000.0, 365)))),
             Pair("Batería", listOf(Pair("Test de Corriente", Pair(15000.0, 365)), Pair("Cambio de Batería", Pair(60000.0, 1095)), Pair("Limpieza de Bornes", Pair(10000.0, 180))))
         )

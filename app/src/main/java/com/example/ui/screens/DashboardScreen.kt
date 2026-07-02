@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
 import com.example.data.model.Vehicle
 import com.example.data.model.ServiceLog
+import com.example.data.model.getStatisticalControlKpd
+import com.example.data.model.getEffectiveKpd
 import com.example.ui.viewmodel.GarageTab
 import com.example.ui.viewmodel.GarageViewModel
 import coil.compose.AsyncImage
@@ -370,7 +372,7 @@ fun DashboardScreen(
                 // Banner de Calibración
                 if ((activeVehicle?.calculatedKpd ?: 0.0) <= 0.0) {
                     val calibKm = Math.max(0.0, (activeVehicle?.odometer ?: 0.0) - (activeVehicle?.initialKm ?: activeVehicle?.odometer ?: 0.0))
-                    val kpdValue = activeVehicle?.calculatedKpd ?: 0.0
+                    val kpdValue = activeVehicle?.getStatisticalControlKpd() ?: 0.0
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
@@ -556,7 +558,7 @@ fun DashboardScreen(
                         val dist = newest.mileage - oldest.mileage
                         if (days > 0.1 && dist > 0) dist / days else 0.0
                     } else 0.0
-                    val kpdToDisplay = if (actualKpd > 0.0) actualKpd else calculatedFromLogs
+                    val kpdToDisplay = if (actualKpd > 0.0) actualKpd else if (calculatedFromLogs > 0.0) calculatedFromLogs else (activeVehicle?.getEffectiveKpd() ?: 42.5)
 
                     Row(
                         verticalAlignment = Alignment.Bottom,
@@ -787,7 +789,7 @@ fun DashboardScreen(
 
                         if (mostUrgentTask != null) {
                             val isOverdue = mostUrgentTask.remainingKm <= 0.0 || mostUrgentTask.remainingDays <= 0.0
-                            val kpd = if ((activeVehicle?.calculatedKpd ?: 0.0) > 0.0) activeVehicle!!.calculatedKpd else 42.5
+                            val kpd = activeVehicle?.getEffectiveKpd() ?: 42.5
                             val daysToLimit = Math.min(
                                 Math.max(0.0, mostUrgentTask.remainingKm / kpd),
                                 Math.max(0.0, mostUrgentTask.remainingDays)

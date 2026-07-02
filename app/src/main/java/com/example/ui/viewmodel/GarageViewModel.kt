@@ -174,7 +174,11 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
 
             if (apiResult != null) {
                 // API login succeeded
-                prefs.edit().putBoolean("is_logged_in", true).apply()
+                prefs.edit()
+                    .putBoolean("is_logged_in", true)
+                    .putString("registered_email", email)
+                    .putString("registered_password", password)
+                    .apply()
                 _isLoggedIn.value = true
                 _currentTab.value = GarageTab.DASHBOARD
 
@@ -185,30 +189,17 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
                 return@launch
             }
 
-            // 2. API failed — fall back to local credentials check
+            // 2. API failed — fall back to local credentials check (for offline access after online login)
             val regEmail = prefs.getString("registered_email", "") ?: ""
             val regPassword = prefs.getString("registered_password", "") ?: ""
-            val matchesReal = regEmail.trim().equals(email.trim(), ignoreCase = true) && regPassword == password
-            val matchesMock = email.trim().equals("prueba@garagepulse.com", ignoreCase = true) && password == "1234"
+            val matchesReal = regEmail.trim().isNotEmpty() && regEmail.trim().equals(email.trim(), ignoreCase = true) && regPassword == password
 
-            if (matchesReal || matchesMock) {
-                if (matchesMock && regEmail.trim().isEmpty()) {
-                    registerUser(
-                        name = "Usuario Prueba",
-                        email = "prueba@garagepulse.com",
-                        password = "1234",
-                        vehicleBrand = "Toyota",
-                        vehicleModel = "Hilux",
-                        initialOdometer = 24500.0,
-                        licensePlate = "M0CK-123",
-                        vehicleType = "Car"
-                    )
-                }
+            if (matchesReal) {
                 prefs.edit().putBoolean("is_logged_in", true).apply()
                 _isLoggedIn.value = true
                 _currentTab.value = GarageTab.DASHBOARD
             } else {
-                _authError.value = "Credenciales inválidas"
+                _authError.value = "Credenciales inválidas o sin conexión al servidor"
             }
 
             _authLoading.value = false
@@ -282,11 +273,8 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
         // Initialize TokenManager
         TokenManager.init(context)
 
-        // Pre-populate DB if it doesn't have any vehicles yet
+        // If user is logged in and has a token, attempt background sync from API to refresh Room cache
         viewModelScope.launch {
-            repository.prepopulateIfEmpty()
-
-            // If user is logged in and has a token, attempt background sync
             if (_isLoggedIn.value && TokenManager.isAuthenticated()) {
                 repository.syncLocalWithRemote()
             }
@@ -327,6 +315,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
             CategoryMaintenanceConfig(
                 categoryName = "Filtros",
                 subServices = listOf(
+                    SubServiceRule("filtro de gasolina", 20000.0, 365),
                     SubServiceRule("Gasolina", 20000.0, 365),
                     SubServiceRule("Aceite", 10000.0, 180),
                     SubServiceRule("Aire AC", 15000.0, 365)
@@ -335,9 +324,17 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
             CategoryMaintenanceConfig(
                 categoryName = "Cambio de Aceite",
                 subServices = listOf(
+                    SubServiceRule("Cambio de aceite", 10000.0, 180),
                     SubServiceRule("Sintético 5W-30", 10000.0, 180),
                     SubServiceRule("Mineral", 5000.0, 90),
                     SubServiceRule("Semi-Sintético", 7500.0, 135)
+                )
+            ),
+            CategoryMaintenanceConfig(
+                categoryName = "Motor",
+                subServices = listOf(
+                    SubServiceRule("Goma de valvula", 50000.0, 1095),
+                    SubServiceRule("limpiesa de inyectores", 25000.0, 365)
                 )
             ),
             CategoryMaintenanceConfig(

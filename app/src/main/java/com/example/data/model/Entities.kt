@@ -55,3 +55,30 @@ data class UserProfile(
     val useKm: Boolean = true,
     val isPremium: Boolean = false
 ) : Serializable
+
+fun Vehicle.getStatisticalControlKpd(): Double {
+    val initDate = this.initialDate ?: this.lastUpdatedDate
+    val initKm = this.initialKm ?: this.odometer
+    val calibKm = maxOf(0.0, this.odometer - initKm)
+    val elapsedDays = maxOf(0.01, (System.currentTimeMillis() - initDate).toDouble() / (1000.0 * 60 * 60 * 24))
+    return if (calibKm > 0.0) calibKm / elapsedDays else 0.0
+}
+
+fun Vehicle.getEffectiveKpd(): Double {
+    if (this.calculatedKpd > 0.0) {
+        return this.calculatedKpd
+    }
+    val controlKpd = this.getStatisticalControlKpd()
+    if (controlKpd > 0.0) {
+        return controlKpd
+    }
+    return when {
+        this.usageType.equals("PUBLICO", ignoreCase = true) || 
+        this.usageType.equals("PÚBLICO", ignoreCase = true) || 
+        this.usageType.equals("TAXI", ignoreCase = true) || 
+        this.usageType.equals("CARGA", ignoreCase = true) -> 120.0
+        this.type.equals("Motorcycle", ignoreCase = true) || 
+        this.type.equals("Moto", ignoreCase = true) -> 25.0
+        else -> 42.5
+    }
+}

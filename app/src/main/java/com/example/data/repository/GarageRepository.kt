@@ -225,21 +225,6 @@ class GarageRepository(private val dao: DatabaseDao) {
         dao.deleteAllServiceLogs()
     }
 
-    suspend fun prepopulateIfEmpty() {
-        // Check if user profile exists
-        val currentProfile = userProfile.firstOrNull()
-        if (currentProfile == null) {
-            // Populate Default User
-            val defaultUser = UserProfile(
-                id = 1,
-                name = "Carlos Rodríguez",
-                email = "carlos.rod@garagepulse.app",
-                avatarUrl = "",
-                useKm = true
-            )
-            dao.insertOrUpdateProfile(defaultUser)
-        }
-    }
 
     /**
      * Synchronize local Room DB with the remote REST API.

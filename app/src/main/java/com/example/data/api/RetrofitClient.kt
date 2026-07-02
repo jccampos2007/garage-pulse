@@ -17,7 +17,7 @@ object RetrofitClient {
      * - Use actual LAN IP (e.g. 192.168.x.x) for physical devices on same network
      * - Use localhost only for backend testing (not accessible from emulator/device)
      */
-    private const val BASE_URL = "http://172.26.119.151:3000/api/"
+    private const val BASE_URL = "http://172.26.116.240:3000/api/"
 
     private val moshi: Moshi = Moshi.Builder()
         .addLast(KotlinJsonAdapterFactory())
