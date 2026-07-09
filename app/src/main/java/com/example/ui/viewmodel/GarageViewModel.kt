@@ -61,6 +61,16 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     private val _categoryConfig = MutableStateFlow<List<CategoryMaintenanceConfig>>(emptyList())
     val categoryConfig: StateFlow<List<CategoryMaintenanceConfig>> = _categoryConfig.asStateFlow()
 
+    private val gpsPrefs = context.getSharedPreferences("GaragePulsePrefs", android.content.Context.MODE_PRIVATE)
+    private val _gpsActivityState = MutableStateFlow(gpsPrefs.getString("gps_activity_state", "PARKED") ?: "PARKED")
+    val gpsActivityState: StateFlow<String> = _gpsActivityState.asStateFlow()
+
+    private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+        if (key == "gps_activity_state") {
+            _gpsActivityState.value = sharedPreferences.getString("gps_activity_state", "PARKED") ?: "PARKED"
+        }
+    }
+
 
     fun dismissSplash() {
         _showSplash.value = false
@@ -272,6 +282,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     init {
         // Initialize TokenManager
         TokenManager.init(context)
+        gpsPrefs.registerOnSharedPreferenceChangeListener(prefListener)
 
         // If user is logged in and has a token, attempt background sync from API to refresh Room cache
         viewModelScope.launch {

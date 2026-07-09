@@ -76,6 +76,7 @@ fun DashboardScreen(
     val userProfile by viewModel.userProfile.collectAsState()
     val isDark by viewModel.isDarkTheme.collectAsState()
     val categoryConfig by viewModel.categoryConfig.collectAsState()
+    val gpsActivityState by viewModel.gpsActivityState.collectAsState()
 
     var showSupportDialog by remember { mutableStateOf(false) }
 
@@ -460,20 +461,72 @@ fun DashboardScreen(
                                     color = if (isDark) Color.White.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.1f)
                                 )
 
-                                // 3. GPS
+                                // 3. GPS / Estado de Telemetría
+                                val initialDate = activeVehicle?.initialDate ?: System.currentTimeMillis()
+                                val daysSinceCreation = (System.currentTimeMillis() - initialDate) / (1000 * 60 * 60 * 24)
+                                val isFreeTrial = daysSinceCreation <= 7
+                                val isPlanExpired = !userProfile.isPremium && !isFreeTrial
+
+                                val stateIcon = when {
+                                    !locationPermissionsState.allPermissionsGranted -> Icons.Default.Warning
+                                    isPlanExpired || gpsActivityState == "EXPIRED" -> Icons.Default.Lock
+                                    gpsActivityState == "DRIVING" -> Icons.Default.DirectionsCar
+                                    gpsActivityState == "WALKING" -> Icons.Default.DirectionsWalk
+                                    else -> Icons.Default.Place
+                                }
+                                val stateTitle = when {
+                                    !locationPermissionsState.allPermissionsGranted -> "Inactivo"
+                                    isPlanExpired || gpsActivityState == "EXPIRED" -> "Vencido"
+                                    gpsActivityState == "DRIVING" -> "En recorrido"
+                                    gpsActivityState == "WALKING" -> "Caminando"
+                                    else -> "Estacionado"
+                                }
+                                val stateSubtitle = when {
+                                    !locationPermissionsState.allPermissionsGranted -> "Sin permisos"
+                                    isPlanExpired || gpsActivityState == "EXPIRED" -> "Plan inactivo"
+                                    gpsActivityState == "DRIVING" -> "Rastreo GPS"
+                                    gpsActivityState == "WALKING" -> "Pausa satelital"
+                                    else -> "En espera"
+                                }
+                                val stateColor = when {
+                                    !locationPermissionsState.allPermissionsGranted -> if (isDark) Color.Gray else Color.DarkGray
+                                    isPlanExpired || gpsActivityState == "EXPIRED" -> MaterialTheme.colorScheme.error
+                                    gpsActivityState == "DRIVING" -> Color(0xFF4CAF50)
+                                    gpsActivityState == "WALKING" -> Color(0xFFFF9800)
+                                    else -> Color(0xFF2196F3)
+                                }
+
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.clickable { locationPermissionsState.launchMultiplePermissionRequest() }
+                                    modifier = Modifier.clickable {
+                                        if (!locationPermissionsState.allPermissionsGranted) {
+                                            locationPermissionsState.launchMultiplePermissionRequest()
+                                        } else if (isPlanExpired || gpsActivityState == "EXPIRED") {
+                                            viewModel.selectTab(GarageTab.PROFILE)
+                                        }
+                                    }
                                 ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = stateIcon,
+                                            contentDescription = stateTitle,
+                                            tint = stateColor,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "0.0",
-                                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                                        text = stateTitle,
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                         color = if (isDark) Color.White else Color.Black
                                     )
                                     Text(
-                                        text = if (locationPermissionsState.allPermissionsGranted) "${unitLabel.lowercase()} GPS" else "GPS Inactivo",
+                                        text = stateSubtitle,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = if (locationPermissionsState.allPermissionsGranted) Color(0xFF4CAF50) else (if (isDark) Color.Gray else Color.DarkGray)
+                                        color = stateColor
                                     )
                                 }
                             }

@@ -91,11 +91,21 @@ class TelemetryService : Service() {
             val initialDate = activeVehicle.initialDate ?: System.currentTimeMillis()
             val daysSinceCreation = (System.currentTimeMillis() - initialDate) / (1000 * 60 * 60 * 24)
             val isFreeTrial = daysSinceCreation <= 7
+            val gpsPrefs = getSharedPreferences("GaragePulsePrefs", Context.MODE_PRIVATE)
 
             if (!userProfile.isPremium && !isFreeTrial) {
+                gpsPrefs.edit().putString("gps_activity_state", "EXPIRED").apply()
                 stopSelf()
                 return@launch
             }
+
+            val speedMs = if (location.hasSpeed()) location.speed else 0f
+            val activityState = when {
+                speedMs >= 2.5f -> "DRIVING"
+                speedMs >= 0.3f -> "WALKING"
+                else -> "PARKED"
+            }
+            gpsPrefs.edit().putString("gps_activity_state", activityState).apply()
 
             val lastLocStr = activeVehicle.lastKnownLocation
             if (lastLocStr != null) {
@@ -108,9 +118,9 @@ class TelemetryService : Service() {
                     
                     val updateThresholdKm = 0.01
                     
-                    // Update currentKm (odometer) every threshold (10m for everyone)
+                    // Update location every threshold (10m), but only increment odometer & GPS stats if driving
                     if (distanceKm >= updateThresholdKm) {
-                        val newOdometer = activeVehicle.odometer + distanceKm
+                        val newOdometer = if (activityState == "DRIVING") activeVehicle.odometer + distanceKm else activeVehicle.odometer
                         val updatedVehicle = activeVehicle.copy(
                             odometer = newOdometer,
                             lastKnownLocation = "${location.latitude},${location.longitude}",
@@ -135,25 +145,26 @@ class TelemetryService : Service() {
                             Log.w("TelemetryService", "Failed to sync telemetry to API: ${e.message}")
                         }
 
-                        // Accumulate GPS tracked distance in preferences (total and today)
-                        val gpsPrefs = getSharedPreferences("GaragePulsePrefs", Context.MODE_PRIVATE)
-                        val currentGpsDist = gpsPrefs.getFloat("gps_distance_vehicle_${activeVehicle.id}", 0f)
-                        val newGpsDist = currentGpsDist + distanceKm.toFloat()
-                        
-                        val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
-                        val todayKey = "gps_distance_today_${activeVehicle.id}_$todayStr"
-                        val currentTodayDist = gpsPrefs.getFloat(todayKey, 0f)
-                        val newTodayDist = currentTodayDist + distanceKm.toFloat()
+                        if (activityState == "DRIVING") {
+                            // Accumulate GPS tracked distance in preferences (total and today)
+                            val currentGpsDist = gpsPrefs.getFloat("gps_distance_vehicle_${activeVehicle.id}", 0f)
+                            val newGpsDist = currentGpsDist + distanceKm.toFloat()
+                            
+                            val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                            val todayKey = "gps_distance_today_${activeVehicle.id}_$todayStr"
+                            val currentTodayDist = gpsPrefs.getFloat(todayKey, 0f)
+                            val newTodayDist = currentTodayDist + distanceKm.toFloat()
 
-                        gpsPrefs.edit()
-                            .putFloat("gps_distance_vehicle_${activeVehicle.id}", newGpsDist)
-                            .putFloat(todayKey, newTodayDist)
-                            .apply()
+                            gpsPrefs.edit()
+                                .putFloat("gps_distance_vehicle_${activeVehicle.id}", newGpsDist)
+                                .putFloat(todayKey, newTodayDist)
+                                .apply()
 
-                        Log.d("TelemetryService", "Updated odometer: +$distanceKm km")
-                        Log.d("TelemetryService", "Updated GPS tracked distance (total): $newGpsDist km, (today): $newTodayDist km")
-                        
-                        checkPredictiveAlerts(dao, activeVehicle, newOdometer)
+                            Log.d("TelemetryService", "Updated odometer: +$distanceKm km")
+                            Log.d("TelemetryService", "Updated GPS tracked distance (total): $newGpsDist km, (today): $newTodayDist km")
+                            
+                            checkPredictiveAlerts(dao, activeVehicle, newOdometer)
+                        }
                     }
                 }
             } else {
