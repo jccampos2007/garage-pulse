@@ -13,11 +13,12 @@ object RetrofitClient {
 
     /**
      * Base URL for the GaragePulse REST API.
+     * - Production / Cloud API: https://garage-pulse-api.gscloud.us/api/
      * - Use 10.0.2.2 for Android emulator (maps to host machine's localhost)
      * - Use actual LAN IP (e.g. 192.168.x.x) for physical devices on same network
      * - Use localhost only for backend testing (not accessible from emulator/device)
      */
-    private const val BASE_URL = "http://172.26.116.240:3000/api/"
+    private const val BASE_URL = "https://garage-pulse-api.gscloud.us/api/"
 
     private val moshi: Moshi = Moshi.Builder()
         .addLast(KotlinJsonAdapterFactory())

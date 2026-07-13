@@ -5,7 +5,7 @@ import retrofit2.http.*
 
 /**
  * Retrofit service interface for the GaragePulse REST API.
- * Base URL: http://localhost:3000/api/
+ * Base URL: https://garage-pulse-api.gscloud.us/api/
  * 
  * All authenticated endpoints require a Bearer token injected
  * automatically via AuthInterceptor in RetrofitClient.

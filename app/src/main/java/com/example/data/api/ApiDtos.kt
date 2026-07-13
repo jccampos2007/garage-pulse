@@ -180,6 +180,7 @@ fun ServiceLog.toApiDto(): ApiServiceLog = ApiServiceLog(
 @JsonClass(generateAdapter = true)
 data class ApiVehicleUpdate(
     val odometer: Double? = null,
+    @Json(name = "initial_km") val initialKm: Double? = null,
     val customIllustrationUrl: String? = null,
     val isActive: Boolean? = null,
     @Json(name = "last_known_location") val lastKnownLocation: String? = null,

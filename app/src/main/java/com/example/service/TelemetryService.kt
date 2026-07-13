@@ -101,11 +101,12 @@ class TelemetryService : Service() {
 
             val speedMs = if (location.hasSpeed()) location.speed else 0f
             val activityState = when {
-                speedMs >= 2.5f -> "DRIVING"
+                speedMs >= 1.5f -> "DRIVING"
                 speedMs >= 0.3f -> "WALKING"
                 else -> "PARKED"
             }
             gpsPrefs.edit().putString("gps_activity_state", activityState).apply()
+            Log.d("TelemetryService", "GPS location received: lat=${location.latitude}, lon=${location.longitude}, speed=${speedMs}m/s -> state=$activityState")
 
             val lastLocStr = activeVehicle.lastKnownLocation
             if (lastLocStr != null) {
@@ -139,7 +140,7 @@ class TelemetryService : Service() {
                                         calculatedKpd = updatedVehicle.calculatedKpd
                                     )
                                 )
-                                Log.d("TelemetryService", "Synced updated odometer to API: ${updatedVehicle.odometer} km")
+                                Log.d("TelemetryService", "Synced updated odometer to API (https://garage-pulse-api.gscloud.us): ${updatedVehicle.odometer} km")
                             }
                         } catch (e: Exception) {
                             Log.w("TelemetryService", "Failed to sync telemetry to API: ${e.message}")
@@ -165,6 +166,8 @@ class TelemetryService : Service() {
                             
                             checkPredictiveAlerts(dao, activeVehicle, newOdometer)
                         }
+                    } else {
+                        Log.d("TelemetryService", "Distance ($distanceKm km) below threshold ($updateThresholdKm km), skipped DB update")
                     }
                 }
             } else {

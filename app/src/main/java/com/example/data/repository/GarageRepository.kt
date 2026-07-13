@@ -116,6 +116,7 @@ class GarageRepository(private val dao: DatabaseDao) {
                 vehicle.id,
                 ApiVehicleUpdate(
                     odometer = vehicle.odometer,
+                    initialKm = vehicle.initialKm,
                     customIllustrationUrl = vehicle.customIllustrationUrl,
                     isActive = vehicle.isActive,
                     lastKnownLocation = vehicle.lastKnownLocation,

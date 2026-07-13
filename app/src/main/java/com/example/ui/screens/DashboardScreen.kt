@@ -602,16 +602,7 @@ fun DashboardScreen(
                         .fillMaxWidth()
                         .padding(20.dp)
                 ) {
-                    val actualKpd = activeVehicle?.calculatedKpd ?: 0.0
-                    val vehicleLogs = allLogs.filter { it.vehicleId == (activeVehicle?.id ?: -1) }.sortedBy { it.date }
-                    val calculatedFromLogs = if (vehicleLogs.size >= 2) {
-                        val oldest = vehicleLogs.first()
-                        val newest = vehicleLogs.last()
-                        val days = (newest.date - oldest.date) / (1000.0 * 60 * 60 * 24)
-                        val dist = newest.mileage - oldest.mileage
-                        if (days > 0.1 && dist > 0) dist / days else 0.0
-                    } else 0.0
-                    val kpdToDisplay = if (actualKpd > 0.0) actualKpd else if (calculatedFromLogs > 0.0) calculatedFromLogs else (activeVehicle?.getEffectiveKpd() ?: 42.5)
+                    val kpdToDisplay = activeVehicle?.getEffectiveKpd() ?: 42.5
 
                     Row(
                         verticalAlignment = Alignment.Bottom,
