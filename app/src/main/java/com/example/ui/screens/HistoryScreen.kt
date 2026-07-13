@@ -352,18 +352,12 @@ fun HistoryScreen(
                                                     }
                                                     Column(horizontalAlignment = Alignment.End) {
                                                         Text(
-                                                            text = "$${String.format(Locale.US, "%.2f", log.cost)}",
+                                                            text = "${displayDistValue(log.mileage, useKm)} $unitLabel",
                                                             style = MaterialTheme.typography.labelMedium.copy(
                                                                 fontWeight = FontWeight.Bold,
                                                                 fontSize = 14.sp
                                                             ),
-                                                            color = MaterialTheme.colorScheme.onSurface
-                                                        )
-                                                        Spacer(modifier = Modifier.height(4.dp))
-                                                        Text(
-                                                            text = "${displayDistValue(log.mileage, useKm)} $unitLabel",
-                                                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                                                            color = MaterialTheme.colorScheme.outline
+                                                            color = MaterialTheme.colorScheme.primary
                                                         )
                                                     }
                                                 }
@@ -589,13 +583,7 @@ fun ServiceDetailDialog(
                             }
                         } del ${cal.get(Calendar.YEAR)}"
                         DetailRow(label = "Fecha", value = fullDateStr)
-                        DetailRow(label = if (useKm) "Kilometraje" else "Millaje", value = "${displayDistValue(log.mileage, useKm)} $unitLabel")
-                        DetailRow(
-                            label = "Costo",
-                            value = "$${String.format(Locale.US, "%.2f", log.cost)}",
-                            valueColor = MaterialTheme.colorScheme.primary,
-                            valueBold = true
-                        )
+                        DetailRow(label = if (useKm) "Kilometraje" else "Millaje", value = "${displayDistValue(log.mileage, useKm)} $unitLabel", valueBold = true)
                     }
                 }
 

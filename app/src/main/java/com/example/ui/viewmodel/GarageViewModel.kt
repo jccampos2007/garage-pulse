@@ -266,7 +266,6 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     val formCategory = MutableStateFlow("Cambio de Aceite")
     val formTitle = MutableStateFlow("")
     val formDate = MutableStateFlow(System.currentTimeMillis())
-    val formCost = MutableStateFlow("")
     val formMileage = MutableStateFlow("")
     val formNotes = MutableStateFlow("")
     val formDetails = MutableStateFlow("")
@@ -407,10 +406,6 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
         formDate.value = date
     }
 
-    fun setFormCost(cost: String) {
-        formCost.value = cost
-    }
-
     fun setFormMileage(mileage: String) {
         formMileage.value = mileage
     }
@@ -428,7 +423,6 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
         val oilCat = _categoryConfig.value.find { it.categoryName == "Cambio de Aceite" }
         formTitle.value = oilCat?.subServices?.firstOrNull()?.description ?: "Sintético 5W-30"
         formDate.value = System.currentTimeMillis()
-        formCost.value = ""
         // Pre-populate form mileage converting to MI if needed
         val profile = userProfile.value
         val odoKm = currentActiveVehicle?.odometer
@@ -443,7 +437,6 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     fun saveServiceLog(onSuccess: () -> Unit) {
         val vehicle = activeVehicle.value ?: return
         val profile = userProfile.value
-        val costVal = formCost.value.toDoubleOrNull() ?: 0.0
         val inputMileage = formMileage.value.toDoubleOrNull()
 
         // Si el usuario escribió en millas, convertimos a KM para guardar
@@ -458,7 +451,7 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
             category = formCategory.value,
             title = formTitle.value.ifBlank { formCategory.value },
             description = formNotes.value.ifBlank { "Mantenimiento general" },
-            cost = costVal,
+            cost = 0.0,
             mileage = finalMileageKm,
             date = formDate.value,
             type = if (formCategory.value in listOf("Frenos", "Motor")) "REPARACIONES" else "PREVENTIVO",

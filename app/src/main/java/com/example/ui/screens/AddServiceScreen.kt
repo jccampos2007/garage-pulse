@@ -66,7 +66,6 @@ fun AddServiceScreen(
     val category by viewModel.formCategory.collectAsState()
     val formTitle by viewModel.formTitle.collectAsState()
     val dateLong by viewModel.formDate.collectAsState()
-    val costStr by viewModel.formCost.collectAsState()
     val mileageStr by viewModel.formMileage.collectAsState()
     val notesStr by viewModel.formNotes.collectAsState()
     val formDetailsStr by viewModel.formDetails.collectAsState()
@@ -1401,16 +1400,6 @@ fun AddServiceScreen(
                             }
                             Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                             
-                            // Cost
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Costo Total:", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary)
-                                Text("$ ${aiExtractedCost}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                            }
-                            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
                             // Mileage
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1442,7 +1431,6 @@ fun AddServiceScreen(
                         showAiExtractionPreview = false
                         // Set ViewModel fields
                         viewModel.setFormCategory(aiExtractedCategory)
-                        viewModel.setFormCost(aiExtractedCost)
                         viewModel.setFormMileage(aiExtractedMileage)
                         viewModel.setFormNotes(aiExtractedNotes + "\n[Registrado vía Asistente de IA]")
                         
