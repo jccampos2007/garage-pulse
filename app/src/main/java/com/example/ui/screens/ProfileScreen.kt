@@ -62,7 +62,17 @@ fun ProfileScreen(
     val categoryConfig by viewModel.categoryConfig.collectAsState()
 
     // Dialog state controllers
+    val isDailyCheckEnabled by viewModel.isDailyTripCheckEnabled.collectAsState()
+    val showTriggeredVehicleDialog by viewModel.showVehicleSelectorDialogFlow.collectAsState()
     var showVehiclesDialog by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(showTriggeredVehicleDialog) {
+        if (showTriggeredVehicleDialog) {
+            showVehiclesDialog = true
+            viewModel.triggerVehicleSelectorDialog(false)
+        }
+    }
+
     var showAddVehicleDialog by remember { mutableStateOf(false) }
     var showMaintenanceConfigDialog by remember { mutableStateOf(false) }
     var editingCategory by remember { mutableStateOf<String?>(null) }
@@ -1411,6 +1421,50 @@ fun ProfileScreen(
                                 imageVector = Icons.Default.ChevronRight,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.outlineVariant
+                            )
+                        }
+
+                        Divider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
+                        // Row: "Verificación Diaria de Recorrido"
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.toggleDailyTripCheck(!isDailyCheckEnabled)
+                                }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DirectionsCar,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Verificación de Viaje Diario",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "Preguntar en qué vehículo estás al salir a rodar",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+
+                            Switch(
+                                checked = isDailyCheckEnabled,
+                                onCheckedChange = { viewModel.toggleDailyTripCheck(it) }
                             )
                         }
 

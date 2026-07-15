@@ -68,7 +68,46 @@ class GarageViewModel(private val repository: GarageRepository, private val cont
     private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
         if (key == "gps_activity_state") {
             _gpsActivityState.value = sharedPreferences.getString("gps_activity_state", "PARKED") ?: "PARKED"
+        } else if (key == "daily_trip_check_enabled") {
+            _isDailyTripCheckEnabled.value = sharedPreferences.getBoolean("daily_trip_check_enabled", true)
         }
+    }
+
+    private val _isDailyTripCheckEnabled = MutableStateFlow(gpsPrefs.getBoolean("daily_trip_check_enabled", true))
+    val isDailyTripCheckEnabled: StateFlow<Boolean> = _isDailyTripCheckEnabled.asStateFlow()
+
+    fun toggleDailyTripCheck(enabled: Boolean) {
+        gpsPrefs.edit().putBoolean("daily_trip_check_enabled", enabled).apply()
+        _isDailyTripCheckEnabled.value = enabled
+    }
+
+    private val _showVehicleSelectorDialogFlow = MutableStateFlow(false)
+    val showVehicleSelectorDialogFlow: StateFlow<Boolean> = _showVehicleSelectorDialogFlow.asStateFlow()
+
+    fun triggerVehicleSelectorDialog(show: Boolean) {
+        _showVehicleSelectorDialogFlow.value = show
+    }
+
+    private val tripCheckPrefs = context.getSharedPreferences("TelemetryTripCheckPrefs", android.content.Context.MODE_PRIVATE)
+    private val _isAlienVehiclePausedToday = MutableStateFlow(
+        tripCheckPrefs.getBoolean("paused_for_alien_vehicle_${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())}", false)
+    )
+    val isAlienVehiclePausedToday: StateFlow<Boolean> = _isAlienVehiclePausedToday.asStateFlow()
+
+    fun refreshAlienVehiclePausedStatus() {
+        val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        _isAlienVehiclePausedToday.value = tripCheckPrefs.getBoolean("paused_for_alien_vehicle_$todayStr", false)
+    }
+
+    fun resumeNormalTracking() {
+        val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        tripCheckPrefs.edit().putBoolean("paused_for_alien_vehicle_$todayStr", false).apply()
+        _isAlienVehiclePausedToday.value = false
+
+        val intent = android.content.Intent(context, com.example.receiver.TelemetryActionReceiver::class.java).apply {
+            action = com.example.receiver.TelemetryActionReceiver.ACTION_RESUME_TRIP
+        }
+        context.sendBroadcast(intent)
     }
 
 

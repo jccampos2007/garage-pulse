@@ -98,6 +98,24 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        handleIntentExtras(intent)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handleIntentExtras(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshAlienVehiclePausedStatus()
+    }
+
+    private fun handleIntentExtras(intent: android.content.Intent?) {
+        if (intent?.getBooleanExtra("SHOW_VEHICLE_SELECTOR", false) == true) {
+            viewModel.selectTab(GarageTab.PROFILE)
+            viewModel.triggerVehicleSelectorDialog(true)
+        }
     }
 }
 

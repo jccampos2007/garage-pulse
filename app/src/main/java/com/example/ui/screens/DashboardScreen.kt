@@ -77,6 +77,7 @@ fun DashboardScreen(
     val isDark by viewModel.isDarkTheme.collectAsState()
     val categoryConfig by viewModel.categoryConfig.collectAsState()
     val gpsActivityState by viewModel.gpsActivityState.collectAsState()
+    val isAlienPaused by viewModel.isAlienVehiclePausedToday.collectAsState()
 
     var showSupportDialog by remember { mutableStateOf(false) }
 
@@ -370,6 +371,61 @@ fun DashboardScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Banner de Vehículo Ajeno / Pausa
+                if (isAlienPaused) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PauseCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "Rastreo Pausado (Vehículo Ajeno)",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                    Text(
+                                        text = "El kilometraje de hoy no se sumará a este vehículo.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                            }
+                            Button(
+                                onClick = { viewModel.resumeNormalTracking() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.onErrorContainer,
+                                    contentColor = MaterialTheme.colorScheme.errorContainer
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Reanudar", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            }
+                        }
+                    }
+                }
+
                 // Banner de Calibración
                 if ((activeVehicle?.calculatedKpd ?: 0.0) <= 0.0) {
                     val calibKm = Math.max(0.0, (activeVehicle?.odometer ?: 0.0) - (activeVehicle?.initialKm ?: activeVehicle?.odometer ?: 0.0))

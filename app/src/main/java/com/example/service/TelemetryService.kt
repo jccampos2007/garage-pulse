@@ -13,6 +13,9 @@ import android.os.Looper
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import android.app.PendingIntent
+import com.example.MainActivity
+import com.example.receiver.TelemetryActionReceiver
 import com.example.data.api.ApiVehicleUpdate
 import com.example.data.api.RetrofitClient
 import com.example.data.api.TokenManager
@@ -107,6 +110,24 @@ class TelemetryService : Service() {
             }
             gpsPrefs.edit().putString("gps_activity_state", activityState).apply()
             Log.d("TelemetryService", "GPS location received: lat=${location.latitude}, lon=${location.longitude}, speed=${speedMs}m/s -> state=$activityState")
+
+            val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+            val tripPrefs = getSharedPreferences("TelemetryTripCheckPrefs", Context.MODE_PRIVATE)
+            val isAlienVehiclePaused = tripPrefs.getBoolean("paused_for_alien_vehicle_$todayStr", false)
+
+            if (activityState == "DRIVING") {
+                val isTripCheckSent = tripPrefs.getBoolean("trip_check_sent_$todayStr", false)
+                val isCheckEnabled = gpsPrefs.getBoolean("daily_trip_check_enabled", true)
+                if (!isTripCheckSent && isCheckEnabled && !isAlienVehiclePaused) {
+                    tripPrefs.edit().putBoolean("trip_check_sent_$todayStr", true).apply()
+                    sendDailyTripCheckNotification(activeVehicle)
+                }
+            }
+
+            if (isAlienVehiclePaused) {
+                Log.d("TelemetryService", "Tracking paused for today ($todayStr) due to ALIEN VEHICLE. Skipping odometer update.")
+                return@launch
+            }
 
             val lastLocStr = activeVehicle.lastKnownLocation
             if (lastLocStr != null) {
@@ -281,6 +302,50 @@ class TelemetryService : Service() {
         fusedLocationClient.removeLocationUpdates(locationCallback)
     }
 
+    private fun sendDailyTripCheckNotification(activeVehicle: com.example.data.model.Vehicle) {
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            return
+        }
+
+        val confirmIntent = Intent(this, TelemetryActionReceiver::class.java).apply {
+            action = TelemetryActionReceiver.ACTION_CONFIRM_VEHICLE
+        }
+        val confirmPendingIntent = PendingIntent.getBroadcast(
+            this, 101, confirmIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val changeIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("SHOW_VEHICLE_SELECTOR", true)
+        }
+        val changePendingIntent = PendingIntent.getActivity(
+            this, 102, changeIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val stopAlienIntent = Intent(this, TelemetryActionReceiver::class.java).apply {
+            action = TelemetryActionReceiver.ACTION_STOP_ALIEN_TRIP
+        }
+        val stopAlienPendingIntent = PendingIntent.getBroadcast(
+            this, 103, stopAlienIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val typeIcon = if (activeVehicle.type == "Motorcycle") "🏍️" else "🚗"
+        val notification = NotificationCompat.Builder(this, "trip_check_channel")
+            .setContentTitle("$typeIcon Recorrido Detectado")
+            .setContentText("¿Viajas en ${activeVehicle.name} (${activeVehicle.licensePlate})?")
+            .setStyle(NotificationCompat.BigTextStyle().bigText("¿Estás en tu ${activeVehicle.name} (${activeVehicle.licensePlate})? Confirma el vehículo para no sumar kilometraje en un vehículo equivocado o ajeno."))
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .addAction(0, "✅ Confirmar", confirmPendingIntent)
+            .addAction(0, "🔄 Cambiar", changePendingIntent)
+            .addAction(0, "🛑 Vehículo Ajeno", stopAlienPendingIntent)
+            .build()
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager?.notify(TelemetryActionReceiver.DAILY_TRIP_CHECK_ID, notification)
+    }
+
     override fun onBind(intent: Intent?): IBinder? {
         return null
     }
@@ -297,9 +362,15 @@ class TelemetryService : Service() {
                 "Alertas Predictivas",
                 NotificationManager.IMPORTANCE_HIGH
             )
+            val tripCheckChannel = NotificationChannel(
+                "trip_check_channel",
+                "Verificación de Viaje Diario",
+                NotificationManager.IMPORTANCE_HIGH
+            )
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(serviceChannel)
             manager?.createNotificationChannel(alertsChannel)
+            manager?.createNotificationChannel(tripCheckChannel)
         }
     }
 }
