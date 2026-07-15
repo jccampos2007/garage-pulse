@@ -259,6 +259,7 @@ fun RegisterScreenLayout(
 
     val motoModels = remember {
         mapOf(
+            "Bera" to listOf("BR150", "SBR 150", "KBR 150", "Leon 200"),
             "Vespa" to listOf("GTS 300", "Primavera 150", "Sprint 150"),
             "Yamaha" to listOf("R6", "MT-07", "Fazer 250"),
             "Honda" to listOf("CB500", "Africa Twin", "PCX 160"),
@@ -853,7 +854,7 @@ fun RegisterScreenLayout(
                             val brands = if (vehicleType == "Car") {
                                 listOf("Toyota", "Chery", "BMW", "Mercedes", "Porsche", "Renault", "Otro")
                             } else {
-                                listOf("Vespa", "Yamaha", "Honda", "Suzuki", "Ducati", "Otro")
+                                listOf("Bera", "Vespa", "Yamaha", "Honda", "Suzuki", "Ducati", "Otro")
                             }
 
                             Row(
@@ -1717,6 +1718,17 @@ fun BrandLogo(brandName: String, modifier: Modifier = Modifier.size(52.dp)) {
                     }
                     drawPath(path = path, color = Color(0xFFFFD54F))
                     drawPath(path = path, color = Color.Black, style = Stroke(width = 1.5f.dp.toPx()))
+                }
+            }
+            "Bera" -> {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFD32F2F)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("B", style = androidx.compose.ui.text.TextStyle(fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color.White))
                 }
             }
             "Vespa" -> {

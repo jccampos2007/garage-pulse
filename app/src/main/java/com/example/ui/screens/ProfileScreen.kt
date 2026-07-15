@@ -277,6 +277,7 @@ fun ProfileScreen(
 
         val motoModels = remember {
             mapOf(
+                "Bera" to listOf("BR150", "SBR 150", "KBR 150", "Leon 200"),
                 "Vespa" to listOf("GTS 300", "Primavera 150", "Sprint 150"),
                 "Yamaha" to listOf("R6", "MT-07", "Fazer 250"),
                 "Honda" to listOf("CB500", "Africa Twin", "PCX 160"),
@@ -412,7 +413,7 @@ fun ProfileScreen(
                     val brands = if (newVehicleType == "Car") {
                         listOf("Toyota", "Chery", "BMW", "Mercedes", "Porsche", "Renault", "Otro")
                     } else {
-                        listOf("Vespa", "Yamaha", "Honda", "Suzuki", "Ducati", "Otro")
+                        listOf("Bera", "Vespa", "Yamaha", "Honda", "Suzuki", "Ducati", "Otro")
                     }
 
                     Row(
